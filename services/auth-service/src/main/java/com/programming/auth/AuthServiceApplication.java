@@ -1,4 +1,4 @@
-package com.programming.crm.auth.service;
+package com.programming.auth;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
