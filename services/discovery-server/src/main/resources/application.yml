@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: discovery-server
+  profiles:
+    active: dev
+
+server:
+  port: 8761
+
+# Default Eureka configuration
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    metadata-map:
+      version: ${spring.application.version:1.0.0}
+      environment: ${spring.profiles.active}
+      startup-time: ${spring.application.startup-time:unknown}
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000
+    renewal-percent-threshold: 0.85
+    response-cache-auto-expiration-in-seconds: 180
+    response-cache-update-interval-ms: 30000
+
+# Management endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,eureka
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active}
+
+# Logging configuration
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    com.crm.platform.discovery: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# Application info
+info:
+  app:
+    name: ${spring.application.name}
+    description: Netflix Eureka service discovery server for CRM platform
+    version: ${spring.application.version:1.0.0}
+    encoding: ${project.build.sourceEncoding:UTF-8}
+    java:
+      version: ${java.version}

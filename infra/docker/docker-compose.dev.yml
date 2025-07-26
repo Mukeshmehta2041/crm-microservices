@@ -1,0 +1,92 @@
+services:
+  # Development overrides
+  discovery-server:
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - LOGGING_LEVEL_ROOT=DEBUG
+    volumes:
+      - ./services/discovery-server/target:/app/target
+
+  api-gateway:
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - LOGGING_LEVEL_ROOT=DEBUG
+    volumes:
+      - ./services/api-gateway/target:/app/target
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: crm-auth-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - discovery-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/auth_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+      - LOGGING_LEVEL_ROOT=DEBUG
+    volumes:
+      - ./services/auth-service/target:/app/target
+    networks:
+      - crm-network
+
+  tenant-service:
+    build: ./services/tenant-service
+    container_name: crm-tenant-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+      - discovery-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tenant_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+      - LOGGING_LEVEL_ROOT=DEBUG
+    volumes:
+      - ./services/tenant-service/target:/app/target
+    networks:
+      - crm-network
+
+  users-service:
+    build: ./services/users-service
+    container_name: crm-users-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - discovery-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/users_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+      - LOGGING_LEVEL_ROOT=DEBUG
+    volumes:
+      - ./services/users-service/target:/app/target
+    networks:
+      - crm-network
+
+  # PostgreSQL with development settings
+  postgres:
+    environment:
+      - POSTGRES_DB=crm_platform
+      - POSTGRES_USER=crm_user
+      - POSTGRES_PASSWORD=crm_password
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c log_min_duration_statement=0
+      -c shared_preload_libraries=pg_stat_statements
+
+  # Redis with development settings
+  redis:
+    command: redis-server --appendonly yes --requirepass redis_password --loglevel debug

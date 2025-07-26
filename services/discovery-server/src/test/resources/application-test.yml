@@ -1,0 +1,39 @@
+# Test environment configuration
+spring:
+  application:
+    name: discovery-server-test
+
+server:
+  port: 0  # Random port for testing
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:${server.port}/eureka/
+  server:
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+    renewal-percent-threshold: 0.49
+
+# Test logging configuration
+logging:
+  level:
+    root: WARN
+    com.crm.platform.discovery: DEBUG
+    com.netflix.eureka: WARN
+    com.netflix.discovery: WARN
+
+# Test management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
