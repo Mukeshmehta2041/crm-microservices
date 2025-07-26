@@ -26,6 +26,7 @@
         <postgresql.version>42.7.1</postgresql.version>
         <redis.version>4.4.6</redis.version>
         <flyway.version>10.13.0</flyway.version>
+        <byte-buddy.version>1.14.16</byte-buddy.version>
         
         <!-- Security -->
         <jjwt.version>0.11.5</jjwt.version>
@@ -105,6 +106,18 @@
                 <groupId>redis.clients</groupId>
                 <artifactId>jedis</artifactId>
                 <version>${redis.version}</version>
+            </dependency>
+
+            <!-- Byte Buddy -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${byte-buddy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${byte-buddy.version}</version>
             </dependency>
             
             <!-- Flyway -->
