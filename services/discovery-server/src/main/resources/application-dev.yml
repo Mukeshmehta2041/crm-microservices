@@ -1,7 +1,4 @@
 # Development environment configuration
-spring:
-  profiles:
-    active: dev
 
 server:
   port: 8761
