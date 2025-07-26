@@ -188,6 +188,12 @@ management.tracing:
     tracing:
       endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
 
+# Spring Cloud LoadBalancer Cache Configuration
+spring.cloud.loadbalancer.cache:
+  enabled: true
+  ttl: 35s
+  capacity: 256
+
 ---
 # Development profile
 spring:
@@ -199,6 +205,9 @@ logging:
   level:
     root: INFO
     com.crm.platform.gateway: DEBUG
+
+# Disable Zipkin for local development to avoid connection errors
+management.tracing.zipkin.tracing.endpoint: ""
 
 ---
 # Docker profile

@@ -23,6 +23,14 @@ services:
     networks:
       - crm-network
 
+  # Zipkin for distributed tracing
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    networks:
+      - crm-network
+
   # Discovery Server
   discovery-server:
     build:
@@ -52,9 +60,11 @@ services:
       - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - ZIPKIN_URL=http://zipkin:9411/api/v2/spans
     depends_on:
       - discovery-server
       - redis
+      - zipkin
     networks:
       - crm-network
     healthcheck:
