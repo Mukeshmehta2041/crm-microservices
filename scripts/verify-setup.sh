@@ -1,97 +1,68 @@
 #!/bin/bash
 
-echo "=== CRM Microservices Platform Setup Verification ==="
+# Verification script for CRM Platform services
+
+set -e
+
+echo "Verifying CRM Platform setup..."
+
+# Function to check if service is responding
+check_service() {
+    local service_name=$1
+    local url=$2
+    local max_attempts=30
+    local attempt=1
+
+    echo -n "Checking $service_name... "
+    
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s -f "$url" > /dev/null 2>&1; then
+            echo "✓ OK"
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    echo "✗ FAILED (timeout after $max_attempts attempts)"
+    return 1
+}
+
+# Check infrastructure services
+echo "=== Infrastructure Services ==="
+check_service "PostgreSQL" "http://localhost:5432" || echo "  Note: PostgreSQL check via HTTP not available, check with: docker-compose exec postgres pg_isready"
+check_service "Redis" "http://localhost:6379" || echo "  Note: Redis check via HTTP not available, check with: docker-compose exec redis redis-cli ping"
+
+# Check application services
 echo ""
+echo "=== Application Services ==="
+check_service "Discovery Server" "http://localhost:8761/actuator/health"
+check_service "Auth Service" "http://localhost:8081/actuator/health"
+check_service "Tenant Service" "http://localhost:8082/actuator/health"
+check_service "Users Service" "http://localhost:8083/actuator/health"
 
-echo "1. Checking Maven project structure..."
-if [ -f "pom.xml" ]; then
-    echo "✓ Parent POM exists"
+# Check service registration with Eureka
+echo ""
+echo "=== Service Registration ==="
+echo "Checking Eureka service registry..."
+if curl -s "http://localhost:8761/eureka/apps" | grep -q "application"; then
+    echo "✓ Services registered with Eureka"
+    echo "Registered services:"
+    curl -s "http://localhost:8761/eureka/apps" | grep -o '<name>[^<]*</name>' | sed 's/<name>//g' | sed 's/<\/name>//g' | sort | uniq | sed 's/^/  - /'
 else
-    echo "✗ Parent POM missing"
-    exit 1
-fi
-
-echo "2. Checking shared libraries..."
-for lib in "common-utils" "security-common" "testing-common"; do
-    if [ -f "shared/$lib/pom.xml" ]; then
-        echo "✓ $lib module exists"
-    else
-        echo "✗ $lib module missing"
-        exit 1
-    fi
-done
-
-echo "3. Checking infrastructure services..."
-if [ -f "services/discovery-server/pom.xml" ]; then
-    echo "✓ Discovery server module exists"
-else
-    echo "✗ Discovery server module missing"
-    exit 1
-fi
-
-echo "4. Checking Docker configuration..."
-if [ -f "docker-compose.yml" ]; then
-    echo "✓ Docker Compose configuration exists"
-else
-    echo "✗ Docker Compose configuration missing"
-    exit 1
-fi
-
-if [ -f "docker-compose.dev.yml" ]; then
-    echo "✓ Development Docker Compose override exists"
-else
-    echo "✗ Development Docker Compose override missing"
-    exit 1
-fi
-
-echo "5. Checking CI/CD configuration..."
-if [ -f ".github/workflows/ci-cd.yml" ]; then
-    echo "✓ CI/CD pipeline configuration exists"
-else
-    echo "✗ CI/CD pipeline configuration missing"
-    exit 1
-fi
-
-echo "6. Testing Maven build..."
-if mvn validate -q; then
-    echo "✓ Maven project validates successfully"
-else
-    echo "✗ Maven project validation failed"
-    exit 1
-fi
-
-if mvn compile -q; then
-    echo "✓ Maven project compiles successfully"
-else
-    echo "✗ Maven project compilation failed"
-    exit 1
-fi
-
-if mvn test -q; then
-    echo "✓ Maven tests pass successfully"
-else
-    echo "✗ Maven tests failed"
-    exit 1
-fi
-
-echo "7. Checking Docker Compose configuration..."
-if docker-compose config --quiet; then
-    echo "✓ Docker Compose configuration is valid"
-else
-    echo "✗ Docker Compose configuration is invalid"
-    exit 1
+    echo "✗ No services registered with Eureka yet (may take a few minutes)"
 fi
 
 echo ""
-echo "=== Setup Verification Complete ==="
-echo "✓ All components are properly configured and ready for development"
+echo "=== Container Status ==="
+docker-compose ps
+
 echo ""
-echo "Next steps:"
-echo "1. Start infrastructure services: make start-infra"
-echo "2. Build and start application services: make start"
-echo "3. Access services:"
-echo "   - Discovery Server: http://localhost:8761"
-echo "   - API Gateway: http://localhost:8080"
-echo "   - Prometheus: http://localhost:9090"
-echo "   - Grafana: http://localhost:3000"
+echo "=== Quick Access URLs ==="
+echo "Discovery Server: http://localhost:8761"
+echo "Auth Service Health: http://localhost:8081/actuator/health"
+echo "Tenant Service Health: http://localhost:8082/actuator/health"
+echo "Users Service Health: http://localhost:8083/actuator/health"
+
 echo ""
+echo "Verification complete!"

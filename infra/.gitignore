@@ -1,0 +1,39 @@
+# Infrastructure ignores
+
+# Docker volumes
+docker/volumes/
+
+# Terraform state
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+
+# Kubernetes secrets
+k8s/secrets/
+k8s/*-secret.yml
+
+# Monitoring data
+monitoring/data/
+prometheus/data/
+grafana/data/
+
+# SSL certificates
+ssl/
+certs/
+*.crt
+*.key
+*.pem
+
+# Environment specific configs
+docker/config/local/
+docker/config/dev/
+docker/config/prod/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp

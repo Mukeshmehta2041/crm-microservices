@@ -1,12 +1,14 @@
 services:
   # Service Discovery
   discovery-server:
-    build: ./services/discovery-server
+    build:
+      context: ../../
+      dockerfile: services/discovery-server/Dockerfile
     container_name: crm-discovery-server
     ports:
       - "8761:8761"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=prod
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 30s
@@ -16,24 +18,91 @@ services:
     networks:
       - crm-network
 
-  # API Gateway
-  api-gateway:
-    build: ./services/api-gateway
-    container_name: crm-api-gateway
+  # Auth Service
+  auth-service:
+    build:
+      context: ../../
+      dockerfile: services/auth-service/Dockerfile
+    container_name: crm-auth-service
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       discovery-server:
         condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/auth_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PASSWORD=redis_password
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    networks:
+      - crm-network
+
+  # Tenant Service
+  tenant-service:
+    build:
+      context: ../../
+      dockerfile: services/tenant-service/Dockerfile
+    container_name: crm-tenant-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tenant_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - crm-network
+
+  # Users Service
+  users-service:
+    build:
+      context: ../../
+      dockerfile: services/users-service/Dockerfile
+    container_name: crm-users-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/users_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - crm-network
 

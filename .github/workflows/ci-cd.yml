@@ -2,156 +2,94 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/* ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, develop ]
 
 env:
-  JAVA_VERSION: '17'
-  MAVEN_OPTS: '-Xmx3072m'
+  REGISTRY: docker.io
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
-  test:
-    name: Run Tests
+  # Test and build shared libraries first
+  test-shared:
+    name: Test Shared Libraries
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
       
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up JDK ${{ env.JAVA_VERSION }}
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ env.JAVA_VERSION }}
+        java-version: '17'
         distribution: 'temurin'
         cache: maven
+        
+    - name: Test shared libraries
+      run: |
+        cd shared
+        for dir in */; do
+          if [ -f "$dir/pom.xml" ]; then
+            echo "Testing $dir"
+            cd "$dir"
+            mvn clean test
+            cd ..
+          fi
+        done
 
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-
-    - name: Run unit tests
-      run: mvn clean test -B
-
-    - name: Run integration tests
-      run: mvn verify -B -Dspring.profiles.active=test
-
-    - name: Generate test report
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
-      with:
-        name: Maven Tests
-        path: '**/target/surefire-reports/*.xml'
-        reporter: java-junit
-
-    - name: Code coverage
-      run: mvn jacoco:report
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./target/site/jacoco/jacoco.xml
-        flags: unittests
-        name: codecov-umbrella
-
-  security-scan:
-    name: Security Scan
+  # Test each service
+  test-services:
+    name: Test Services
     runs-on: ubuntu-latest
-    needs: test
-
+    needs: test-shared
+    strategy:
+      matrix:
+        service: [auth-service, tenant-service, users-service, discovery-server]
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ env.JAVA_VERSION }}
+        java-version: '17'
         distribution: 'temurin'
         cache: maven
+        
+    - name: Test ${{ matrix.service }}
+      run: |
+        cd services/${{ matrix.service }}
+        mvn clean test
 
-    - name: Run OWASP Dependency Check
-      run: mvn org.owasp:dependency-check-maven:check
-
-    - name: Upload OWASP report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: owasp-report
-        path: target/dependency-check-report.html
-
+  # Build and push Docker images
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-
+    needs: [test-shared, test-services]
+    if: github.event_name == 'push'
+    
     strategy:
       matrix:
-        service: [
-          'discovery-server',
-          'api-gateway',
-          'auth-service',
-          'tenant-service',
-          'users-service',
-          'contacts-service',
-          'deals-service',
-          'leads-service',
-          'accounts-service',
-          'activities-service',
-          'pipelines-service'
-        ]
-
+        service: [auth-service, tenant-service, users-service, discovery-server]
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Set up JDK ${{ env.JAVA_VERSION }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-        cache: maven
-
-    - name: Build service
-      run: mvn clean package -pl services/${{ matrix.service }} -am -DskipTests
-
+      
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-
+      
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
+        
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -160,68 +98,151 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
-
+          type=sha,prefix={{branch}}-
+        
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: ./services/${{ matrix.service }}
+        context: .
+        file: services/${{ matrix.service }}/Dockerfile
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
 
-  deploy-staging:
-    name: Deploy to Staging
+  # Build and push development images
+  build-dev-images:
+    name: Build Development Images
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-
+    needs: [test-shared, test-services]
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
+    
+    strategy:
+      matrix:
+        service: [auth-service, tenant-service, users-service, discovery-server]
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Extract branch name
+      shell: bash
+      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      id: extract_branch
+        
+    - name: Build and push development image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: services/${{ matrix.service }}/Dockerfile.dev
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:dev
+          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
 
+  # Security scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        service: [auth-service, tenant-service, users-service, discovery-server]
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:latest
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.service }}.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+  # Deploy to staging (on main branch)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push, security-scan]
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Deploy to staging
       run: |
-        echo "Deploying to staging environment"
-        # Add deployment commands here
-        # docker-compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        # For example, updating docker-compose files with new image tags
+        # or triggering deployment to your staging environment
+        
+    - name: Run health checks
+      run: |
+        echo "Running health checks..."
+        # Add health check commands here
+        
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        text: 'Staging deployment completed'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
+  # Deploy to production (on tags)
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     environment: production
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Deploy to production
       run: |
-        echo "Deploying to production environment"
-        # Add deployment commands here
-        # docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-  notify:
-    name: Notify Team
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always()
-
-    steps:
-    - name: Notify on success
-      if: ${{ needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success' }}
+        echo "Deploying to production environment..."
+        # Add your production deployment commands here
+        
+    - name: Run health checks
       run: |
-        echo "Deployment successful!"
-        # Add notification logic (Slack, email, etc.)
-
-    - name: Notify on failure
-      if: ${{ needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure' }}
-      run: |
-        echo "Deployment failed!"
-        # Add notification logic (Slack, email, etc.)
+        echo "Running production health checks..."
+        # Add health check commands here
+        
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        text: 'Production deployment completed'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

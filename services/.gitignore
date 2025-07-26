@@ -1,0 +1,30 @@
+# Service-specific ignores
+
+# Maven target directories
+*/target/
+
+# IDE files
+*/.idea/
+*/.vscode/
+*/*.iml
+
+# Logs
+*/logs/
+*/*.log
+
+# OS files
+*/.DS_Store
+*/Thumbs.db
+
+# Temporary files
+*/*.tmp
+*/*.temp
+*/*.swp
+
+# Local configuration overrides
+*/application-local.yml
+*/application-local.properties
+
+# Test databases
+*/test.db
+*/test.sqlite
