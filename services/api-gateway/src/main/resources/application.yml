@@ -1,0 +1,239 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  
+  profiles:
+    active: dev
+  
+  main:
+    web-application-type: reactive
+  
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      
+      # Global CORS configuration
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: 
+              - "http://localhost:*"
+              - "https://*.crm-platform.com"
+              - "https://*.crm-platform.dev"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowed-headers:
+              - "*"
+            allow-credentials: true
+            max-age: 3600
+      
+      # Default filters applied to all routes
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenish-rate: 10
+            redis-rate-limiter.burst-capacity: 20
+            redis-rate-limiter.requested-tokens: 1
+        - name: Retry
+          args:
+            retries: 3
+            methods: GET,POST,PUT,DELETE
+            backoff:
+              first-backoff: 50ms
+              max-backoff: 500ms
+              factor: 2
+              based-on-previous-value: false
+        - name: CircuitBreaker
+          args:
+            name: default-circuit-breaker
+            fallback-uri: forward:/fallback/default
+
+  # Redis configuration for rate limiting
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Eureka client configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    metadata-map:
+      version: ${project.version:1.0.0}
+      description: "API Gateway for CRM Platform"
+
+# JWT configuration
+jwt:
+  secret: ${JWT_SECRET:myVerySecretKeyForJWTTokenGenerationAndValidation123456789}
+  access-token-validity-minutes: ${JWT_ACCESS_TOKEN_VALIDITY:15}
+  refresh-token-validity-days: ${JWT_REFRESH_TOKEN_VALIDITY:7}
+
+# Management and monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      slo:
+        http.server.requests: 100ms,200ms,500ms,1s,2s
+
+# Logging configuration
+logging:
+  level:
+    com.crm.platform.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    io.github.resilience4j: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId:-}] [%X{requestId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId:-}] [%X{requestId:-}] %logger{36} - %msg%n"
+
+# Resilience4j configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        sliding-window-type: COUNT_BASED
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      auth-service-cb:
+        base-config: default
+        sliding-window-size: 20
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 60s
+        slow-call-duration-threshold: 3s
+        minimum-number-of-calls: 10
+      tenant-service-cb:
+        base-config: default
+      users-service-cb:
+        base-config: default
+      contacts-service-cb:
+        base-config: default
+      deals-service-cb:
+        base-config: default
+      leads-service-cb:
+        base-config: default
+      accounts-service-cb:
+        base-config: default
+      activities-service-cb:
+        base-config: default
+      pipelines-service-cb:
+        base-config: default
+  
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+    instances:
+      auth-service-cb:
+        timeout-duration: 10s
+      tenant-service-cb:
+        timeout-duration: 7s
+      users-service-cb:
+        timeout-duration: 7s
+
+# Distributed tracing
+management.tracing:
+  sampling:
+    probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+---
+# Development profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: INFO
+    com.crm.platform.gateway: DEBUG
+
+---
+# Docker profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka
+
+management.tracing.zipkin.tracing.endpoint: http://zipkin:9411/api/v2/spans
+
+---
+# Production profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: WARN
+    com.crm.platform.gateway: INFO
+  file:
+    name: /var/log/api-gateway.log
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: crm_platform
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/config/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - crm-network
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - crm-network
+
+  # Discovery Server
+  discovery-server:
+    build:
+      context: .
+      dockerfile: services/discovery-server/Dockerfile.dev
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - discovery-server
+      - redis
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile.dev
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/auth_db
+      - DATABASE_USERNAME=crm_user
+      - DATABASE_PASSWORD=crm_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - discovery-server
+      - postgres
+      - redis
+    networks:
+      - crm-network
+
+  # Tenant Service
+  tenant-service:
+    build:
+      context: .
+      dockerfile: services/tenant-service/Dockerfile.dev
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/tenant_db
+      - DATABASE_USERNAME=crm_user
+      - DATABASE_PASSWORD=crm_password
+    depends_on:
+      - discovery-server
+      - postgres
+    networks:
+      - crm-network
+
+  # Users Service
+  users-service:
+    build:
+      context: .
+      dockerfile: services/users-service/Dockerfile.dev
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_SERVER_URL=http://discovery-server:8761/eureka
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/users_db
+      - DATABASE_USERNAME=crm_user
+      - DATABASE_PASSWORD=crm_password
+    depends_on:
+      - discovery-server
+      - postgres
+    networks:
+      - crm-network
+
+volumes:
+  postgres_data:
+
+networks:
+  crm-network:
+    driver: bridge
