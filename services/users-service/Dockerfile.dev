@@ -1,0 +1,29 @@
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# Install Maven
+RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+
+# Copy parent pom and shared dependencies
+COPY pom.xml /app/parent-pom.xml
+COPY shared /app/shared
+
+# Copy service pom.xml
+COPY services/users-service/pom.xml .
+
+# Download dependencies
+RUN mvn dependency:go-offline -f /app/parent-pom.xml
+RUN mvn dependency:go-offline
+
+# Copy source code
+COPY services/users-service/src ./src
+
+# Development configuration
+ENV SPRING_PROFILES_ACTIVE=dev
+ENV JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+EXPOSE 8083 5005
+
+# Use Maven to run in development mode with hot reload
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=*:5005"]

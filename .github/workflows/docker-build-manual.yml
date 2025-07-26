@@ -1,0 +1,145 @@
+name: Manual Docker Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to build (or "all" for all services)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - auth-service
+        - tenant-service
+        - users-service
+        - discovery-server
+      environment:
+        description: 'Build environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - development
+      tag:
+        description: 'Custom tag (optional)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: docker.io
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  build-single-service:
+    name: Build Single Service
+    runs-on: ubuntu-latest
+    if: github.event.inputs.service != 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Determine Dockerfile
+      id: dockerfile
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "development" ]; then
+          echo "dockerfile=services/${{ github.event.inputs.service }}/Dockerfile.dev" >> $GITHUB_OUTPUT
+          echo "suffix=-dev" >> $GITHUB_OUTPUT
+        else
+          echo "dockerfile=services/${{ github.event.inputs.service }}/Dockerfile" >> $GITHUB_OUTPUT
+          echo "suffix=" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Determine tags
+      id: tags
+      run: |
+        BASE_TAG="${{ secrets.DOCKER_USERNAME }}/crm-${{ github.event.inputs.service }}"
+        if [ -n "${{ github.event.inputs.tag }}" ]; then
+          echo "tags=${BASE_TAG}:${{ github.event.inputs.tag }}${{ steps.dockerfile.outputs.suffix }}" >> $GITHUB_OUTPUT
+        else
+          if [ "${{ github.event.inputs.environment }}" = "development" ]; then
+            echo "tags=${BASE_TAG}:dev,${BASE_TAG}:latest-dev" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${BASE_TAG}:latest,${BASE_TAG}:manual-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          fi
+        fi
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ steps.dockerfile.outputs.dockerfile }}
+        push: true
+        tags: ${{ steps.tags.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  build-all-services:
+    name: Build All Services
+    runs-on: ubuntu-latest
+    if: github.event.inputs.service == 'all'
+    
+    strategy:
+      matrix:
+        service: [auth-service, tenant-service, users-service, discovery-server]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Determine Dockerfile
+      id: dockerfile
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "development" ]; then
+          echo "dockerfile=services/${{ matrix.service }}/Dockerfile.dev" >> $GITHUB_OUTPUT
+          echo "suffix=-dev" >> $GITHUB_OUTPUT
+        else
+          echo "dockerfile=services/${{ matrix.service }}/Dockerfile" >> $GITHUB_OUTPUT
+          echo "suffix=" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Determine tags
+      id: tags
+      run: |
+        BASE_TAG="${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}"
+        if [ -n "${{ github.event.inputs.tag }}" ]; then
+          echo "tags=${BASE_TAG}:${{ github.event.inputs.tag }}${{ steps.dockerfile.outputs.suffix }}" >> $GITHUB_OUTPUT
+        else
+          if [ "${{ github.event.inputs.environment }}" = "development" ]; then
+            echo "tags=${BASE_TAG}:dev,${BASE_TAG}:latest-dev" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${BASE_TAG}:latest,${BASE_TAG}:manual-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          fi
+        fi
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ steps.dockerfile.outputs.dockerfile }}
+        push: true
+        tags: ${{ steps.tags.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
