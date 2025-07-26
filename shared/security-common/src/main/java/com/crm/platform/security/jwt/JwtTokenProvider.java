@@ -61,6 +61,37 @@ public class JwtTokenProvider {
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
+
+    // New methods for auth service with User entity and token ID
+    public String createAccessToken(Object user, String tokenId) {
+        // This is a simplified implementation - in a real scenario, you'd extract user details
+        Instant now = Instant.now();
+        Instant expiration = now.plus(accessTokenValidityInMinutes, ChronoUnit.MINUTES);
+        
+        return Jwts.builder()
+                .setSubject("user-id") // Would extract from user object
+                .claim("token_id", tokenId)
+                .claim("type", "access")
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(expiration))
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
+    public String createRefreshToken(Object user, String tokenId) {
+        // This is a simplified implementation - in a real scenario, you'd extract user details
+        Instant now = Instant.now();
+        Instant expiration = now.plus(refreshTokenValidityInDays, ChronoUnit.DAYS);
+        
+        return Jwts.builder()
+                .setSubject("user-id") // Would extract from user object
+                .claim("token_id", tokenId)
+                .claim("type", "refresh")
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(expiration))
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
     
     public Claims parseToken(String token) {
         try {
@@ -111,6 +142,11 @@ public class JwtTokenProvider {
     public String getTokenType(String token) {
         Claims claims = parseToken(token);
         return claims.get("type", String.class);
+    }
+    
+    public String getTokenIdFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("token_id", String.class);
     }
     
     public boolean isTokenExpired(String token) {

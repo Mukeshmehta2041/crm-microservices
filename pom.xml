@@ -59,6 +59,9 @@
         
         <!-- Infrastructure Services -->
         <module>services/discovery-server</module>
+        <module>services/auth-service</module>
+        <module>services/tenant-service</module>
+        <module>services/users-service</module>
     </modules>
 
     <dependencyManagement>

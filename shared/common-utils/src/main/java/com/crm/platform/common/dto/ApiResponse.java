@@ -37,6 +37,13 @@ public class ApiResponse<T> {
         return response;
     }
     
+    public static ApiResponse<String> success(String message) {
+        ApiResponse<String> response = new ApiResponse<>();
+        response.setSuccess(true);
+        response.setData(message);
+        return response;
+    }
+    
     public static <T> ApiResponse<T> error(List<ErrorDetail> errors) {
         ApiResponse<T> response = new ApiResponse<>();
         response.setSuccess(false);

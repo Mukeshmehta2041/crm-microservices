@@ -21,8 +21,8 @@ This implementation plan provides a comprehensive roadmap for building the CRM m
   - Create Docker image with optimized configuration for different environments
   - _Requirements: 1.1, 1.2, 8.1, 8.2, 8.3_
 
-- [ ] 3. Core Infrastructure Services Development
-  - [ ] 3.1 Authentication Service Implementation
+- [x] 3. Core Infrastructure Services Development
+  - [x] 3.1 Authentication Service Implementation
     - Create Spring Boot application with Spring Security and JWT support
     - Implement OAuth2 authorization code flow with PKCE for web and mobile clients
     - Build JWT token generation, validation, and refresh mechanisms
@@ -34,7 +34,7 @@ This implementation plan provides a comprehensive roadmap for building the CRM m
     - Add comprehensive unit and integration tests with TestContainers
     - _Requirements: 1.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-  - [ ] 3.2 Tenant Service Implementation
+  - [x] 3.2 Tenant Service Implementation
     - Create Spring Boot application for multi-tenant management
     - Implement tenant CRUD operations with comprehensive validation
     - Build tenant configuration management with JSONB storage
@@ -46,7 +46,7 @@ This implementation plan provides a comprehensive roadmap for building the CRM m
     - Add comprehensive testing with multiple tenant scenarios
     - _Requirements: 1.3, 3.3, 7.1, 7.2, 7.3, 7.4_
 
-  - [ ] 3.3 Users Service Implementation
+  - [x] 3.3 Users Service Implementation
     - Create Spring Boot application for user profile management
     - Implement user CRUD operations with role-based permissions
     - Build role and permission management system with hierarchical roles
