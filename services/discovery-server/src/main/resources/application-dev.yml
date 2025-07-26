@@ -1,0 +1,44 @@
+# Development environment configuration
+spring:
+  profiles:
+    active: dev
+
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    metadata-map:
+      environment: development
+      zone: dev-zone
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  server:
+    enable-self-preservation: false  # Disable for development
+    eviction-interval-timer-in-ms: 15000  # Faster eviction for dev
+    renewal-percent-threshold: 0.49  # Lower threshold for dev
+
+# Enhanced logging for development
+logging:
+  level:
+    root: INFO
+    com.netflix.eureka: DEBUG
+    com.netflix.discovery: DEBUG
+    com.crm.platform.discovery: DEBUG
+  file:
+    name: logs/discovery-server-dev.log
+
+# Development-specific management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Expose all endpoints in dev
+  endpoint:
+    shutdown:
+      enabled: true  # Allow graceful shutdown in dev
