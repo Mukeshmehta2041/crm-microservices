@@ -49,7 +49,7 @@ services:
       POSTGRES_PASSWORD: crm_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+      - ./config/postgres/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U crm_user -d crm_platform"]
       interval: 10s

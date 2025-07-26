@@ -88,13 +88,11 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
+jwt:
+  secret: ThisIsAReallyLongAndSecureSecretKeyForJWTGenerationThatIsAtLeast256BitsLong
+  access-token-validity-minutes: 15
+  refresh-token-validity-days: 7
+
 auth:
   max-failed-attempts: 5
   lockout-duration-minutes: 30
-  token:
-    access-token-validity-seconds: 3600
-    refresh-token-validity-seconds: 604800
-    secret: mySecretKey
-  jwt:
-    secret: myJwtSecretKey
-    expiration: 3600
