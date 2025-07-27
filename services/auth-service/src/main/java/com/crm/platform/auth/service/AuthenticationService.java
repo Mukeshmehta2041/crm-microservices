@@ -173,18 +173,16 @@ public class AuthenticationService {
         }
 
         UserSession session = sessionOpt.get();
-        Optional<User> userOpt = userRepository.findById(session.getUserId());
-        if (userOpt.isEmpty() || !userOpt.get().isActive()) {
-            throw new InvalidTokenException("User account is not active");
+        UserInfo userInfo = userServiceClient.getUserById(session.getUserId());
+        if (userInfo == null) {
+            throw new InvalidTokenException("User account not found");
         }
-
-        User user = userOpt.get();
 
         // Generate new tokens
         String newTokenId = UUID.randomUUID().toString();
-        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getTenantId(), 
+        String newAccessToken = jwtTokenProvider.createAccessToken(userInfo.getId(), userInfo.getTenantId(), 
             List.of(), List.of()); // Empty roles and permissions for now
-        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getTenantId());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(userInfo.getId(), userInfo.getTenantId());
 
         // Update session
         LocalDateTime now = LocalDateTime.now();
@@ -196,16 +194,18 @@ public class AuthenticationService {
         sessionRepository.save(session);
 
         // Log token refresh
-        auditService.logSecurityEvent(user.getId(), user.getTenantId(),
+        auditService.logSecurityEvent(userInfo.getId(), userInfo.getTenantId(),
             SecurityAuditLog.EVENT_TOKEN_REFRESH, "Token refreshed successfully",
             SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, newTokenId);
 
-        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(
-            user.getId(), user.getUsername(), user.getEmail(),
-            user.getFirstName(), user.getLastName(), user.getTenantId(), user.getLastLoginAt());
+        // Create UserInfo for login response
+        UserInfo loginUserInfo = new UserInfo(
+            userInfo.getId(), userInfo.getEmail(), userInfo.getFirstName(), userInfo.getLastName(),
+            userInfo.getPhoneNumber(), userInfo.getJobTitle(), userInfo.getDepartment(),
+            userInfo.getProfileImageUrl(), userInfo.getRoles(), userInfo.getTenantId());
 
         return new LoginResponse(newAccessToken, newRefreshToken, accessTokenValiditySeconds,
-                               refreshTokenValiditySeconds, userInfo);
+                               refreshTokenValiditySeconds, loginUserInfo);
     }
 
     public void logout(String tokenId, HttpServletRequest httpRequest) {
@@ -218,10 +218,9 @@ public class AuthenticationService {
             session.setStatus(UserSession.SessionStatus.LOGGED_OUT);
             sessionRepository.save(session);
 
-            Optional<User> userOpt = userRepository.findById(session.getUserId());
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                auditService.logSecurityEvent(user.getId(), user.getTenantId(),
+            UserInfo userInfo = userServiceClient.getUserById(session.getUserId());
+            if (userInfo != null) {
+                auditService.logSecurityEvent(userInfo.getId(), userInfo.getTenantId(),
                     SecurityAuditLog.EVENT_LOGOUT, "User logged out",
                     SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
             }
