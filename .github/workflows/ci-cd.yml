@@ -13,7 +13,29 @@ env:
   COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
-  # Test and build shared libraries first
+  # Build JAR files first (same as local mvn clean package)
+  build-jars:
+    name: Build JAR Files
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build all JAR files
+      run: |
+        mvn clean package -DskipTests
+        echo "JAR files built successfully"
+        ls -la services/discovery-server/target/
+
+  # Test shared libraries first
   test-shared:
     name: Test Shared Libraries
     runs-on: ubuntu-latest
@@ -41,14 +63,11 @@ jobs:
           fi
         done
 
-  # Test each service
-  test-services:
-    name: Test Services
+  # Test discovery-server only
+  test-discovery-server:
+    name: Test Discovery Server
     runs-on: ubuntu-latest
     needs: test-shared
-    strategy:
-      matrix:
-        service: [auth-service, tenant-service, users-service, discovery-server]
     
     steps:
     - name: Checkout code
@@ -61,21 +80,17 @@ jobs:
         distribution: 'temurin'
         cache: maven
         
-    - name: Test ${{ matrix.service }}
+    - name: Test discovery-server
       run: |
-        cd services/${{ matrix.service }}
+        cd services/discovery-server
         mvn clean test
 
-  # Build and push Docker images
-  build-and-push:
-    name: Build and Push Docker Images
+  # Build and push Docker images - Discovery Server only
+  build-and-push-discovery:
+    name: Build and Push Discovery Server
     runs-on: ubuntu-latest
-    needs: [test-shared, test-services]
+    needs: [build-jars, test-discovery-server]
     if: github.event_name == 'push'
-    
-    strategy:
-      matrix:
-        service: [auth-service, tenant-service, users-service, discovery-server]
     
     steps:
     - name: Checkout code
@@ -94,7 +109,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}
+        images: ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server
         tags: |
           type=ref,event=branch
           type=ref,event=pr
@@ -104,11 +119,11 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
           type=sha,prefix={{branch}}-
         
-    - name: Build and push Docker image
+    - name: Build and push Discovery Server Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: services/${{ matrix.service }}/Dockerfile
+        file: services/discovery-server/Dockerfile
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -116,16 +131,12 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
 
-  # Build and push development images
-  build-dev-images:
-    name: Build Development Images
+  # Build and push development images - Discovery Server only
+  build-dev-discovery:
+    name: Build Development Discovery Server
     runs-on: ubuntu-latest
-    needs: [test-shared, test-services]
+    needs: [build-jars, test-discovery-server]
     if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
-    
-    strategy:
-      matrix:
-        service: [auth-service, tenant-service, users-service, discovery-server]
     
     steps:
     - name: Checkout code
@@ -145,49 +156,45 @@ jobs:
       run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       id: extract_branch
         
-    - name: Build and push development image
+    - name: Build and push development Discovery Server image
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: services/${{ matrix.service }}/Dockerfile.dev
+        file: services/discovery-server/Dockerfile
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:dev
-          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+          ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:dev
+          ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:${{ steps.extract_branch.outputs.branch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64
 
-  # Security scanning
-  security-scan:
-    name: Security Scan
+  # Security scanning - Discovery Server only
+  security-scan-discovery:
+    name: Security Scan Discovery Server
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-discovery
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    strategy:
-      matrix:
-        service: [auth-service, tenant-service, users-service, discovery-server]
     
     steps:
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:latest
+        image-ref: ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:latest
         format: 'sarif'
-        output: 'trivy-results-${{ matrix.service }}.sarif'
+        output: 'trivy-results-discovery-server.sarif'
         
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+        sarif_file: 'trivy-results-discovery-server.sarif'
 
-  # Deploy to staging (on main branch)
-  deploy-staging:
-    name: Deploy to Staging
+  # Deploy to staging (on main branch) - Discovery Server only
+  deploy-staging-discovery:
+    name: Deploy Discovery Server to Staging
     runs-on: ubuntu-latest
-    needs: [build-and-push, security-scan]
+    needs: [build-and-push-discovery, security-scan-discovery]
     if: github.ref == 'refs/heads/main'
     environment: staging
     
@@ -195,16 +202,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Deploy to staging
+    - name: Deploy Discovery Server to staging
       run: |
-        echo "Deploying to staging environment..."
+        echo "Deploying Discovery Server to staging environment..."
         # Add your staging deployment commands here
         # For example, updating docker-compose files with new image tags
         # or triggering deployment to your staging environment
         
     - name: Run health checks
       run: |
-        echo "Running health checks..."
+        echo "Running Discovery Server health checks..."
         # Add health check commands here
         
     - name: Notify deployment
@@ -212,15 +219,15 @@ jobs:
       if: always()
       with:
         status: ${{ job.status }}
-        text: 'Staging deployment completed'
+        text: 'Discovery Server staging deployment completed'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  # Deploy to production (on tags)
-  deploy-production:
-    name: Deploy to Production
+  # Deploy to production (on tags) - Discovery Server only
+  deploy-production-discovery:
+    name: Deploy Discovery Server to Production
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-discovery
     if: startsWith(github.ref, 'refs/tags/v')
     environment: production
     
@@ -228,14 +235,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Deploy to production
+    - name: Deploy Discovery Server to production
       run: |
-        echo "Deploying to production environment..."
+        echo "Deploying Discovery Server to production environment..."
         # Add your production deployment commands here
         
     - name: Run health checks
       run: |
-        echo "Running production health checks..."
+        echo "Running Discovery Server production health checks..."
         # Add health check commands here
         
     - name: Notify deployment
@@ -243,6 +250,213 @@ jobs:
       if: always()
       with:
         status: ${{ job.status }}
-        text: 'Production deployment completed'
+        text: 'Discovery Server production deployment completed'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+# Commented out other services for now
+#  # Test each service
+#  test-services:
+#    name: Test Services
+#    runs-on: ubuntu-latest
+#    needs: test-shared
+#    strategy:
+#      matrix:
+#        service: [auth-service, tenant-service, users-service, discovery-server]
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      
+#    - name: Set up JDK 17
+#      uses: actions/setup-java@v4
+#      with:
+#        java-version: '17'
+#        distribution: 'temurin'
+#        cache: maven
+#        
+#    - name: Test ${{ matrix.service }}
+#      run: |
+#        cd services/${{ matrix.service }}
+#        mvn clean test
+
+#  # Build and push Docker images
+#  build-and-push:
+#    name: Build and Push Docker Images
+#    runs-on: ubuntu-latest
+#    needs: [test-shared, test-services]
+#    if: github.event_name == 'push'
+#    
+#    strategy:
+#      matrix:
+#        service: [auth-service, tenant-service, users-service, discovery-server]
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      
+#    - name: Set up Docker Buildx
+#      uses: docker/setup-buildx-action@v3
+#      
+#    - name: Log in to Docker Hub
+#      uses: docker/login-action@v3
+#      with:
+#        username: ${{ secrets.DOCKER_USERNAME }}
+#        password: ${{ secrets.DOCKER_PASSWORD }}
+#        
+#    - name: Extract metadata
+#      id: meta
+#      uses: docker/metadata-action@v5
+#      with:
+#        images: ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}
+#        tags: |
+#          type=ref,event=branch
+#          type=ref,event=pr
+#          type=semver,pattern={{version}}
+#          type=semver,pattern={{major}}.{{minor}}
+#          type=semver,pattern={{major}}
+#          type=raw,value=latest,enable={{is_default_branch}}
+#          type=sha,prefix={{branch}}-
+#        
+#    - name: Build and push Docker image
+#      uses: docker/build-push-action@v5
+#      with:
+#        context: .
+#        file: services/${{ matrix.service }}/Dockerfile
+#        push: true
+#        tags: ${{ steps.meta.outputs.tags }}
+#        labels: ${{ steps.meta.outputs.labels }}
+#        cache-from: type=gha
+#        cache-to: type=gha,mode=max
+#        platforms: linux/amd64,linux/arm64
+
+#  # Build and push development images
+#  build-dev-images:
+#    name: Build Development Images
+#    runs-on: ubuntu-latest
+#    needs: [test-shared, test-services]
+#    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
+#    
+#    strategy:
+#      matrix:
+#        service: [auth-service, tenant-service, users-service, discovery-server]
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      
+#    - name: Set up Docker Buildx
+#      uses: docker/setup-buildx-action@v3
+#      
+#    - name: Log in to Docker Hub
+#      uses: docker/login-action@v3
+#      with:
+#        username: ${{ secrets.DOCKER_USERNAME }}
+#        password: ${{ secrets.DOCKER_PASSWORD }}
+#        
+#    - name: Extract branch name
+#      shell: bash
+#      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+#      id: extract_branch
+#        
+#    - name: Build and push development image
+#      uses: docker/build-push-action@v5
+#      with:
+#        context: .
+#        file: services/${{ matrix.service }}/Dockerfile.dev
+#        push: true
+#        tags: |
+#          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:dev
+#          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+#        cache-from: type=gha
+#        cache-to: type=gha,mode=max
+#        platforms: linux/amd64
+
+#  # Security scanning
+#  security-scan:
+#    name: Security Scan
+#    runs-on: ubuntu-latest
+#    needs: build-and-push
+#    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#    
+#    strategy:
+#      matrix:
+#        service: [auth-service, tenant-service, users-service, discovery-server]
+#    
+#    steps:
+#    - name: Run Trivy vulnerability scanner
+#      uses: aquasecurity/trivy-action@master
+#      with:
+#        image-ref: ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:latest
+#        format: 'sarif'
+#        output: 'trivy-results-${{ matrix.service }}.sarif'
+#        
+#    - name: Upload Trivy scan results to GitHub Security tab
+#      uses: github/codeql-action/upload-sarif@v3
+#      if: always()
+#      with:
+#        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+#  # Deploy to staging (on main branch)
+#  deploy-staging:
+#    name: Deploy to Staging
+#    runs-on: ubuntu-latest
+#    needs: [build-and-push, security-scan]
+#    if: github.ref == 'refs/heads/main'
+#    environment: staging
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      
+#    - name: Deploy to staging
+#      run: |
+#        echo "Deploying to staging environment..."
+#        # Add your staging deployment commands here
+#        # For example, updating docker-compose files with new image tags
+#        # or triggering deployment to your staging environment
+#        
+#    - name: Run health checks
+#      run: |
+#        echo "Running health checks..."
+#        # Add health check commands here
+#        
+#    - name: Notify deployment
+#      uses: 8398a7/action-slack@v3
+#      if: always()
+#      with:
+#        status: ${{ job.status }}
+#        text: 'Staging deployment completed'
+#      env:
+#        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+#  # Deploy to production (on tags)
+#  deploy-production:
+#    name: Deploy to Production
+#    runs-on: ubuntu-latest
+#    needs: build-and-push
+#    if: startsWith(github.ref, 'refs/tags/v')
+#    environment: production
+#    
+#    steps:
+#    - name: Checkout code
+#      uses: actions/checkout@v4
+#      
+#    - name: Deploy to production
+#      run: |
+#        echo "Deploying to production environment..."
+#        # Add your production deployment commands here
+#        
+#    - name: Run health checks
+#      run: |
+#        echo "Running production health checks..."
+#        # Add health check commands here
+#        
+#    - name: Notify deployment
+#      uses: 8398a7/action-slack@v3
+#      if: always()
+#      with:
+#        status: ${{ job.status }}
+#        text: 'Production deployment completed'
+#      env:
+#        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
