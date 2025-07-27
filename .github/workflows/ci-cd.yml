@@ -125,7 +125,12 @@ jobs:
         
     - name: Extract branch name
       shell: bash
-      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      run: |
+        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+        # Sanitize branch name for Docker tag (replace / with -)
+        sanitized_branch=$(echo "$branch" | sed 's/\//-/g')
+        echo "branch=$branch" >> $GITHUB_OUTPUT
+        echo "sanitized_branch=$sanitized_branch" >> $GITHUB_OUTPUT
       id: extract_branch
         
     - name: Build and push development Discovery Server image
@@ -136,7 +141,7 @@ jobs:
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:dev
-          ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:${{ steps.extract_branch.outputs.branch }}
+          ${{ secrets.DOCKER_USERNAME }}/crm-discovery-server:${{ steps.extract_branch.outputs.sanitized_branch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64
@@ -328,7 +333,12 @@ jobs:
 #        
 #    - name: Extract branch name
 #      shell: bash
-#      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+#      run: |
+#        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+#        # Sanitize branch name for Docker tag (replace / with -)
+#        sanitized_branch=$(echo "$branch" | sed 's/\//-/g')
+#        echo "branch=$branch" >> $GITHUB_OUTPUT
+#        echo "sanitized_branch=$sanitized_branch" >> $GITHUB_OUTPUT
 #      id: extract_branch
 #        
 #    - name: Build and push development image
@@ -339,7 +349,7 @@ jobs:
 #        push: true
 #        tags: |
 #          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:dev
-#          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+#          ${{ secrets.DOCKER_USERNAME }}/crm-${{ matrix.service }}:${{ steps.extract_branch.outputs.sanitized_branch }}
 #        cache-from: type=gha
 #        cache-to: type=gha,mode=max
 #        platforms: linux/amd64
