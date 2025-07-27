@@ -1,7 +1,4 @@
 # Production environment configuration
-spring:
-  profiles:
-    active: prod
 
 server:
   port: 8761

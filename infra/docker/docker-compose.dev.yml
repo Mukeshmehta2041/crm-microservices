@@ -1,110 +1,17 @@
 services:
-  # Development overrides
   discovery-server:
     build:
-      context: ../../
-      dockerfile: services/discovery-server/Dockerfile.dev
+      context: ../../  # Path to project root (adjust as needed)
+      dockerfile: services/discovery-server/Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - LOGGING_LEVEL_ROOT=DEBUG
+      - EUREKA_INSTANCE_HOSTNAME=localhost
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
     ports:
       - "8761:8761"
-      - "5005:5005"  # Debug port
-    volumes:
-      - ../../services/discovery-server/src:/app/src
-
-  auth-service:
-    build:
-      context: ../../
-      dockerfile: services/auth-service/Dockerfile.dev
-    container_name: crm-auth-service-dev
-    ports:
-      - "8081:8081"
-      - "5006:5005"  # Debug port
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/auth_db
-      - SPRING_DATASOURCE_USERNAME=crm_user
-      - SPRING_DATASOURCE_PASSWORD=crm_password
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PASSWORD=redis_password
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
-      - LOGGING_LEVEL_ROOT=DEBUG
-    volumes:
-      - ../../services/auth-service/src:/app/src
-    networks:
-      - crm-network
-
-  tenant-service:
-    build:
-      context: ../../
-      dockerfile: services/tenant-service/Dockerfile.dev
-    container_name: crm-tenant-service-dev
-    ports:
-      - "8082:8082"
-      - "5007:5005"  # Debug port
-    depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tenant_db
-      - SPRING_DATASOURCE_USERNAME=crm_user
-      - SPRING_DATASOURCE_PASSWORD=crm_password
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
-      - LOGGING_LEVEL_ROOT=DEBUG
-    volumes:
-      - ../../services/tenant-service/src:/app/src
-    networks:
-      - crm-network
-
-  users-service:
-    build:
-      context: ../../
-      dockerfile: services/users-service/Dockerfile.dev
-    container_name: crm-users-service-dev
-    ports:
-      - "8083:8083"
-      - "5008:5005"  # Debug port
-    depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_started
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/users_db
-      - SPRING_DATASOURCE_USERNAME=crm_user
-      - SPRING_DATASOURCE_PASSWORD=crm_password
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
-      - LOGGING_LEVEL_ROOT=DEBUG
-    volumes:
-      - ../../services/users-service/src:/app/src
-    networks:
-      - crm-network
-
-  # PostgreSQL with development settings
-  postgres:
-    environment:
-      - POSTGRES_DB=crm_platform
-      - POSTGRES_USER=crm_user
-      - POSTGRES_PASSWORD=crm_password
-    command: >
-      postgres
-      -c log_statement=all
-      -c log_destination=stderr
-      -c log_min_duration_statement=0
-      -c shared_preload_libraries=pg_stat_statements
-
-  # Redis with development settings
-  redis:
-    command: redis-server --appendonly yes --requirepass redis_password --loglevel debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

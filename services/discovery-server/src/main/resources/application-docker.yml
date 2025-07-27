@@ -1,7 +1,4 @@
 # Docker environment configuration
-spring:
-  profiles:
-    active: docker
 
 server:
   port: 8761

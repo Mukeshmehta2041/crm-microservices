@@ -1,25 +1,16 @@
 server:
-  port: 8083
+  port: 8082
 
 spring:
   application:
     name: users-service
   
-  profiles:
-    active: dev
-  
   datasource:
-    url: jdbc:postgresql://localhost:5432/users_db
-    username: crm_user
-    password: crm_password
+    url: jdbc:postgresql://localhost:5432/crm_users
+    username: ${DB_USERNAME:crm_user}
+    password: ${DB_PASSWORD:crm_password}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      idle-timeout: 300000
-      connection-timeout: 20000
-      leak-detection-threshold: 60000
-  
+    
   jpa:
     hibernate:
       ddl-auto: validate
@@ -28,33 +19,27 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        use_sql_comments: true
-        jdbc:
-          batch_size: 20
-        order_inserts: true
-        order_updates: true
-  
+        
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    validate-on-migrate: true
-  
+    
   cache:
-    type: simple
-    cache-names: user-profiles, user-roles, user-permissions, teams
-
+    type: redis
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 1
+      
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
   instance:
     prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 30
-    lease-expiration-duration-in-seconds: 90
-
+    
 management:
   endpoints:
     web:
@@ -62,33 +47,15 @@ management:
         include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: when-authorized
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-
+      show-details: always
+      
 logging:
   level:
-    com.crm.platform.users: INFO
+    com.crm.platform.users: DEBUG
+    org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-
-users:
-  default:
-    avatar-url: "/images/default-avatar.png"
-    timezone: "UTC"
-    language: "en-US"
-  validation:
-    username:
-      min-length: 3
-      max-length: 100
-    password:
-      min-length: 8
-      require-uppercase: true
-      require-lowercase: true
-      require-numbers: true
-      require-special-chars: true
+  file:
+    name: logs/users-service.log
