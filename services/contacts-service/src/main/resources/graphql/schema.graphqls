@@ -1,0 +1,183 @@
+type Query {
+    contact(id: ID!): Contact
+    contacts(filter: ContactFilter, pagination: PaginationInput, sort: SortInput): ContactConnection
+    searchContacts(query: String!, pagination: PaginationInput): ContactConnection
+}
+
+type Mutation {
+    createContact(input: ContactInput!): Contact
+    updateContact(id: ID!, input: ContactInput!): Contact
+    deleteContact(id: ID!): Boolean
+    mergeContacts(primaryId: ID!, duplicateIds: [ID!]!): Contact
+}
+
+type Subscription {
+    contactUpdated(tenantId: ID!): Contact
+    contactCreated(tenantId: ID!): Contact
+    contactDeleted(tenantId: ID!): Contact
+}
+
+type Contact {
+    id: ID!
+    tenantId: ID!
+    accountId: ID
+    firstName: String!
+    lastName: String!
+    fullName: String!
+    displayName: String!
+    email: String
+    phone: String
+    mobile: String
+    title: String
+    department: String
+    mailingAddress: JSON
+    socialProfiles: JSON
+    leadSource: String
+    contactStatus: ContactStatus!
+    leadScore: Int!
+    doNotCall: Boolean!
+    doNotEmail: Boolean!
+    emailOptOut: Boolean!
+    preferredContactMethod: ContactMethod!
+    timezone: String
+    language: String!
+    tags: [String!]!
+    notes: String
+    customFields: JSON
+    ownerId: ID!
+    createdAt: String!
+    updatedAt: String!
+    createdBy: ID!
+    updatedBy: ID!
+    relationships: [ContactRelationship!]!
+}
+
+type ContactRelationship {
+    id: ID!
+    relatedContact: Contact!
+    relationshipType: RelationshipType!
+    description: String
+    isPrimary: Boolean!
+    createdAt: String!
+}
+
+type ContactConnection {
+    edges: [ContactEdge!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+}
+
+type ContactEdge {
+    node: Contact!
+    cursor: String!
+}
+
+type PageInfo {
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+input ContactInput {
+    accountId: ID
+    firstName: String!
+    lastName: String!
+    email: String
+    phone: String
+    mobile: String
+    title: String
+    department: String
+    mailingAddress: JSON
+    socialProfiles: JSON
+    leadSource: String
+    contactStatus: ContactStatus
+    leadScore: Int
+    doNotCall: Boolean
+    doNotEmail: Boolean
+    emailOptOut: Boolean
+    preferredContactMethod: ContactMethod
+    timezone: String
+    language: String
+    tags: [String!]
+    notes: String
+    customFields: JSON
+    ownerId: ID
+}
+
+input ContactFilter {
+    firstName: String
+    lastName: String
+    email: String
+    phone: String
+    title: String
+    department: String
+    contactStatus: ContactStatus
+    minLeadScore: Int
+    maxLeadScore: Int
+    leadSource: String
+    ownerId: ID
+    accountId: ID
+    tags: [String!]
+    createdAfter: String
+    createdBefore: String
+    updatedAfter: String
+    updatedBefore: String
+}
+
+input PaginationInput {
+    first: Int
+    after: String
+    last: Int
+    before: String
+}
+
+input SortInput {
+    field: ContactSortField!
+    direction: SortDirection!
+}
+
+enum ContactStatus {
+    ACTIVE
+    INACTIVE
+    DECEASED
+}
+
+enum ContactMethod {
+    EMAIL
+    PHONE
+    MOBILE
+    MAIL
+}
+
+enum RelationshipType {
+    COLLEAGUE
+    MANAGER
+    SUBORDINATE
+    PARTNER
+    VENDOR
+    CUSTOMER
+    FRIEND
+    FAMILY
+    REFERRAL
+    INFLUENCER
+    DECISION_MAKER
+    GATEKEEPER
+    OTHER
+}
+
+enum ContactSortField {
+    FIRST_NAME
+    LAST_NAME
+    EMAIL
+    CREATED_AT
+    UPDATED_AT
+    LEAD_SCORE
+}
+
+enum SortDirection {
+    ASC
+    DESC
+}
+
+scalar JSON

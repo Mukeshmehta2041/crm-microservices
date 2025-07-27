@@ -13,18 +13,22 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users", indexes = {
-    @Index(name = "idx_users_username", columnList = "username"),
-    @Index(name = "idx_users_email", columnList = "email"),
-    @Index(name = "idx_users_tenant_id", columnList = "tenant_id"),
-    @Index(name = "idx_users_status", columnList = "status")
+@Table(name = "user_credentials", indexes = {
+    @Index(name = "idx_user_credentials_username", columnList = "username"),
+    @Index(name = "idx_user_credentials_email", columnList = "email"),
+    @Index(name = "idx_user_credentials_tenant_id", columnList = "tenant_id"),
+    @Index(name = "idx_user_credentials_user_id", columnList = "user_id")
 })
 @EntityListeners(AuditingEntityListener.class)
-public class User {
+public class UserCredentials {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
+
+    @NotNull
+    @Column(name = "user_id", nullable = false, unique = true)
+    private UUID userId; // Reference to User in User Management Service
 
     @NotBlank
     @Size(min = 3, max = 100)
@@ -48,16 +52,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private UserStatus status = UserStatus.ACTIVE;
-
-    @Column(name = "first_name", length = 100)
-    private String firstName;
-
-    @Column(name = "last_name", length = 100)
-    private String lastName;
-
-    @Column(name = "phone_number", length = 20)
-    private String phoneNumber;
+    private CredentialStatus status = CredentialStatus.ACTIVE;
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
@@ -89,9 +84,10 @@ public class User {
     private LocalDateTime updatedAt;
 
     // Constructors
-    public User() {}
+    public UserCredentials() {}
 
-    public User(String username, String email, String passwordHash, UUID tenantId) {
+    public UserCredentials(UUID userId, String username, String email, String passwordHash, UUID tenantId) {
+        this.userId = userId;
         this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -102,6 +98,9 @@ public class User {
     // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+
+    public UUID getUserId() { return userId; }
+    public void setUserId(UUID userId) { this.userId = userId; }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -118,17 +117,8 @@ public class User {
     public UUID getTenantId() { return tenantId; }
     public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
 
-    public UserStatus getStatus() { return status; }
-    public void setStatus(UserStatus status) { this.status = status; }
-
-    public String getFirstName() { return firstName; }
-    public void setFirstName(String firstName) { this.firstName = firstName; }
-
-    public String getLastName() { return lastName; }
-    public void setLastName(String lastName) { this.lastName = lastName; }
-
-    public String getPhoneNumber() { return phoneNumber; }
-    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public CredentialStatus getStatus() { return status; }
+    public void setStatus(CredentialStatus status) { this.status = status; }
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
@@ -163,21 +153,10 @@ public class User {
     }
 
     public boolean isActive() {
-        return status == UserStatus.ACTIVE && !isAccountLocked();
+        return status == CredentialStatus.ACTIVE && !isAccountLocked();
     }
 
-    public String getFullName() {
-        if (firstName != null && lastName != null) {
-            return firstName + " " + lastName;
-        } else if (firstName != null) {
-            return firstName;
-        } else if (lastName != null) {
-            return lastName;
-        }
-        return username;
-    }
-
-    public enum UserStatus {
+    public enum CredentialStatus {
         ACTIVE, INACTIVE, SUSPENDED, DELETED
     }
 }

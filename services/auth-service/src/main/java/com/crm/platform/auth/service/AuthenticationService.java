@@ -1,16 +1,18 @@
 package com.crm.platform.auth.service;
 
+import com.crm.platform.auth.client.UserServiceClient;
 import com.crm.platform.auth.dto.LoginRequest;
 import com.crm.platform.auth.dto.LoginResponse;
 import com.crm.platform.auth.dto.RefreshTokenRequest;
+import com.crm.platform.auth.dto.UserInfo;
 import com.crm.platform.auth.entity.SecurityAuditLog;
-import com.crm.platform.auth.entity.User;
+import com.crm.platform.auth.entity.UserCredentials;
 import com.crm.platform.auth.entity.UserSession;
 import com.crm.platform.auth.exception.AuthenticationException;
 import com.crm.platform.auth.exception.AccountLockedException;
 import com.crm.platform.auth.exception.InvalidCredentialsException;
 import com.crm.platform.auth.exception.InvalidTokenException;
-import com.crm.platform.auth.repository.UserRepository;
+import com.crm.platform.auth.repository.UserCredentialsRepository;
 import com.crm.platform.auth.repository.UserSessionRepository;
 import com.crm.platform.security.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,12 +35,13 @@ public class AuthenticationService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
 
-    private final UserRepository userRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
     private final UserSessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SecurityAuditService auditService;
     private final RateLimitingService rateLimitingService;
+    private final UserServiceClient userServiceClient;
 
     @Value("${auth.max-failed-attempts:5}")
     private int maxFailedAttempts;
@@ -53,18 +56,20 @@ public class AuthenticationService {
     private long refreshTokenValiditySeconds;
 
     @Autowired
-    public AuthenticationService(UserRepository userRepository,
+    public AuthenticationService(UserCredentialsRepository userCredentialsRepository,
                                UserSessionRepository sessionRepository,
                                PasswordEncoder passwordEncoder,
                                JwtTokenProvider jwtTokenProvider,
                                SecurityAuditService auditService,
-                               RateLimitingService rateLimitingService) {
-        this.userRepository = userRepository;
+                               RateLimitingService rateLimitingService,
+                               UserServiceClient userServiceClient) {
+        this.userCredentialsRepository = userCredentialsRepository;
         this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.auditService = auditService;
         this.rateLimitingService = rateLimitingService;
+        this.userServiceClient = userServiceClient;
     }
 
     public LoginResponse authenticate(LoginRequest request, HttpServletRequest httpRequest) {
@@ -79,70 +84,79 @@ public class AuthenticationService {
             throw new AuthenticationException("Too many login attempts. Please try again later.");
         }
 
-        // Find user
-        Optional<User> userOpt = userRepository.findByUsernameOrEmail(
+        // Find user credentials
+        Optional<UserCredentials> credentialsOpt = userCredentialsRepository.findByUsernameOrEmail(
             request.getUsernameOrEmail(), request.getUsernameOrEmail());
 
-        if (userOpt.isEmpty()) {
+        if (credentialsOpt.isEmpty()) {
             auditService.logSecurityEvent(null, null, SecurityAuditLog.EVENT_LOGIN_FAILURE,
-                "User not found: " + request.getUsernameOrEmail(), 
+                "User credentials not found: " + request.getUsernameOrEmail(), 
                 SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);
             throw new InvalidCredentialsException("Invalid username or password");
         }
 
-        User user = userOpt.get();
+        UserCredentials credentials = credentialsOpt.get();
 
         // Check if account is locked
-        if (user.isAccountLocked()) {
-            auditService.logSecurityEvent(user.getId(), user.getTenantId(), 
+        if (credentials.isAccountLocked()) {
+            auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
                 SecurityAuditLog.EVENT_LOGIN_FAILURE, "Account is locked",
                 SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);
             throw new AccountLockedException("Account is temporarily locked due to multiple failed login attempts");
         }
 
         // Verify password
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            handleFailedLogin(user, clientIp, userAgent);
+        if (!passwordEncoder.matches(request.getPassword(), credentials.getPasswordHash())) {
+            handleFailedLogin(credentials, clientIp, userAgent);
             throw new InvalidCredentialsException("Invalid username or password");
         }
 
         // Reset failed attempts on successful login
-        if (user.getFailedLoginAttempts() > 0) {
-            userRepository.updateFailedLoginAttempts(user.getId(), 0);
+        if (credentials.getFailedLoginAttempts() > 0) {
+            userCredentialsRepository.updateFailedLoginAttempts(credentials.getId(), 0);
+        }
+
+        // Fetch user profile information from User Service
+        UserInfo userProfile = userServiceClient.getUserById(credentials.getUserId());
+        if (userProfile == null) {
+            logger.warn("User profile not found for user ID: {}", credentials.getUserId());
+            // Create minimal user info from credentials
+            userProfile = new UserInfo(
+                credentials.getUserId(),
+                credentials.getEmail(),
+                null, null, null, null, null, null,
+                java.util.Set.of(),
+                credentials.getTenantId()
+            );
         }
 
         // Generate tokens
         String tokenId = UUID.randomUUID().toString();
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getTenantId(), 
+        String accessToken = jwtTokenProvider.createAccessToken(credentials.getUserId(), credentials.getTenantId(), 
             List.of(), List.of()); // Empty roles and permissions for now
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getTenantId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(credentials.getUserId(), credentials.getTenantId());
 
         // Create session
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime accessTokenExpiry = now.plusSeconds(accessTokenValiditySeconds);
         LocalDateTime refreshTokenExpiry = now.plusSeconds(refreshTokenValiditySeconds);
 
-        UserSession session = new UserSession(user.getId(), tokenId, refreshToken, 
+        UserSession session = new UserSession(credentials.getUserId(), tokenId, refreshToken, 
                                             accessTokenExpiry, refreshTokenExpiry);
         session.setIpAddress(clientIp);
         session.setUserAgent(userAgent);
         sessionRepository.save(session);
 
         // Update last login time
-        userRepository.updateLastLoginTime(user.getId(), now);
+        userCredentialsRepository.updateLastLoginTime(credentials.getId(), now);
 
         // Log successful login
-        auditService.logSecurityEvent(user.getId(), user.getTenantId(), 
+        auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
             SecurityAuditLog.EVENT_LOGIN_SUCCESS, "User logged in successfully",
             SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
 
-        // Create response
-        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(
-            user.getId(), user.getUsername(), user.getEmail(),
-            user.getFirstName(), user.getLastName(), user.getTenantId(), now);
-
         return new LoginResponse(accessToken, refreshToken, accessTokenValiditySeconds,
-                               refreshTokenValiditySeconds, userInfo);
+                               refreshTokenValiditySeconds, userProfile);
     }
 
     public LoginResponse refreshToken(RefreshTokenRequest request, HttpServletRequest httpRequest) {
@@ -232,20 +246,20 @@ public class AuthenticationService {
         return true;
     }
 
-    private void handleFailedLogin(User user, String clientIp, String userAgent) {
-        int newFailedAttempts = user.getFailedLoginAttempts() + 1;
-        userRepository.updateFailedLoginAttempts(user.getId(), newFailedAttempts);
+    private void handleFailedLogin(UserCredentials credentials, String clientIp, String userAgent) {
+        int newFailedAttempts = credentials.getFailedLoginAttempts() + 1;
+        userCredentialsRepository.updateFailedLoginAttempts(credentials.getId(), newFailedAttempts);
 
         if (newFailedAttempts >= maxFailedAttempts) {
             LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockoutDurationMinutes);
-            userRepository.lockAccount(user.getId(), lockUntil);
+            userCredentialsRepository.lockAccount(credentials.getId(), lockUntil);
 
-            auditService.logSecurityEvent(user.getId(), user.getTenantId(),
+            auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(),
                 SecurityAuditLog.EVENT_ACCOUNT_LOCKED, 
                 "Account locked due to " + newFailedAttempts + " failed login attempts",
                 SecurityAuditLog.AuditEventStatus.WARNING, clientIp, userAgent, null);
         } else {
-            auditService.logSecurityEvent(user.getId(), user.getTenantId(),
+            auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(),
                 SecurityAuditLog.EVENT_LOGIN_FAILURE,
                 "Failed login attempt " + newFailedAttempts + " of " + maxFailedAttempts,
                 SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);

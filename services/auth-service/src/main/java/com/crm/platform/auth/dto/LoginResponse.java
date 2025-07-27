@@ -2,9 +2,6 @@ package com.crm.platform.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
 public class LoginResponse {
 
     @JsonProperty("access_token")
@@ -55,49 +52,5 @@ public class LoginResponse {
     public UserInfo getUser() { return user; }
     public void setUser(UserInfo user) { this.user = user; }
 
-    public static class UserInfo {
-        private UUID id;
-        private String username;
-        private String email;
-        private String firstName;
-        private String lastName;
-        private UUID tenantId;
-        private LocalDateTime lastLoginAt;
 
-        // Constructors
-        public UserInfo() {}
-
-        public UserInfo(UUID id, String username, String email, String firstName, 
-                       String lastName, UUID tenantId, LocalDateTime lastLoginAt) {
-            this.id = id;
-            this.username = username;
-            this.email = email;
-            this.firstName = firstName;
-            this.lastName = lastName;
-            this.tenantId = tenantId;
-            this.lastLoginAt = lastLoginAt;
-        }
-
-        // Getters and Setters
-        public UUID getId() { return id; }
-        public void setId(UUID id) { this.id = id; }
-
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-
-        public String getFirstName() { return firstName; }
-        public void setFirstName(String firstName) { this.firstName = firstName; }
-
-        public String getLastName() { return lastName; }
-        public void setLastName(String lastName) { this.lastName = lastName; }
-
-        public UUID getTenantId() { return tenantId; }
-        public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
-
-        public LocalDateTime getLastLoginAt() { return lastLoginAt; }
-        public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
-    }
 }

@@ -1,0 +1,31 @@
+# Development Dockerfile for Deals Service
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# Install Maven
+RUN apt-get update && apt-get install -y maven curl && rm -rf /var/lib/apt/lists/*
+
+# Copy Maven wrapper and pom.xml
+COPY services/deals-service/pom.xml ./
+COPY pom.xml ../pom.xml
+COPY shared/ ../shared/
+
+# Download dependencies
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY services/deals-service/src ./src
+
+# Build the application
+RUN mvn clean package -DskipTests -B
+
+# Expose port
+EXPOSE 8085
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8085/actuator/health || exit 1
+
+# Run the application with development profile
+CMD ["java", "-jar", "target/deals-service-1.0.0-SNAPSHOT.jar", "--spring.profiles.active=docker"]

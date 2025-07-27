@@ -96,3 +96,7 @@ jwt:
 auth:
   max-failed-attempts: 5
   lockout-duration-minutes: 30
+
+services:
+  user-service:
+    url: http://localhost:8082
