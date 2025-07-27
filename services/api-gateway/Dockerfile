@@ -1,25 +1,3 @@
-# Multi-stage Dockerfile for API Gateway
-FROM openjdk:17-jdk-slim as builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy Maven wrapper and pom files
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-COPY services/api-gateway/pom.xml services/api-gateway/
-COPY shared/ shared/
-
-# Download dependencies
-RUN ./mvnw dependency:go-offline -pl services/api-gateway
-
-# Copy source code
-COPY services/api-gateway/src/ services/api-gateway/src/
-
-# Build the application
-RUN ./mvnw clean package -pl services/api-gateway -DskipTests
-
-# Production stage
 FROM openjdk:17-jre-slim
 
 # Create non-root user
@@ -31,8 +9,8 @@ WORKDIR /app
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy the built JAR file
-COPY --from=builder /app/services/api-gateway/target/*.jar app.jar
+# Copy the pre-built JAR file from local target directory
+COPY services/api-gateway/target/api-gateway-1.0.0-SNAPSHOT.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R apigateway:apigateway /app

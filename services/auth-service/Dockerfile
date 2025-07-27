@@ -1,26 +1,3 @@
-FROM openjdk:17-jdk-slim AS builder
-
-WORKDIR /app
-
-# Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
-
-# Copy parent pom and shared dependencies
-COPY pom.xml /app/parent-pom.xml
-COPY shared /app/shared
-
-# Copy service pom.xml
-COPY services/auth-service/pom.xml .
-
-# Download dependencies
-RUN mvn dependency:go-offline -f /app/parent-pom.xml
-RUN mvn dependency:go-offline
-
-# Copy source code and build
-COPY services/auth-service/src ./src
-RUN mvn clean package -DskipTests
-
-# Production image
 FROM openjdk:17-jdk-slim
 
 WORKDIR /app
@@ -31,8 +8,8 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy jar file
-COPY --from=builder /app/target/*.jar app.jar
+# Copy the pre-built JAR file from local target directory
+COPY services/auth-service/target/auth-service-1.0.0-SNAPSHOT.jar app.jar
 
 # Change ownership
 RUN chown appuser:appuser app.jar
