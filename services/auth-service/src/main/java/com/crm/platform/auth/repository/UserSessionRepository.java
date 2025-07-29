@@ -46,4 +46,16 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     List<UserSession> findExpiredRefreshTokens(@Param("now") LocalDateTime now);
 
     void deleteByStatusAndCreatedAtBefore(UserSession.SessionStatus status, LocalDateTime before);
+
+    /**
+     * Find active sessions by user ID and tenant ID
+     */
+    @Query("SELECT s FROM UserSession s WHERE s.userId = :userId AND s.tenantId = :tenantId AND s.status = 'ACTIVE'")
+    List<UserSession> findActiveSessionsByUserId(@Param("userId") UUID userId, @Param("tenantId") UUID tenantId);
+
+    /**
+     * Count active sessions by tenant
+     */
+    @Query("SELECT COUNT(s) FROM UserSession s WHERE s.tenantId = :tenantId AND s.status = 'ACTIVE'")
+    long countActiveSessionsByTenant(@Param("tenantId") UUID tenantId);
 }

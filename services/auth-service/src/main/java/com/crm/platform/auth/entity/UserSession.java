@@ -53,8 +53,24 @@ public class UserSession {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
-    @Column(name = "device_info", length = 255)
-    private String deviceInfo;
+    @Column(name = "device_type", length = 50)
+    private String deviceType;
+
+    @Column(name = "browser", length = 100)
+    private String browser;
+
+    @Column(name = "operating_system", length = 100)
+    private String operatingSystem;
+
+    @Column(name = "location", length = 255)
+    private String location;
+
+    @Column(name = "device_fingerprint", length = 500)
+    private String deviceFingerprint;
+
+    @NotNull
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @Column(name = "last_accessed_at")
     private LocalDateTime lastAccessedAt;
@@ -73,6 +89,20 @@ public class UserSession {
         this.refreshToken = refreshToken;
         this.expiresAt = expiresAt;
         this.refreshExpiresAt = refreshExpiresAt;
+        this.lastAccessedAt = LocalDateTime.now();
+    }
+
+    public UserSession(UUID userId, UUID tenantId, String tokenId, String refreshToken, 
+                      LocalDateTime expiresAt, LocalDateTime refreshExpiresAt, 
+                      String ipAddress, String userAgent) {
+        this.userId = userId;
+        this.tenantId = tenantId;
+        this.tokenId = tokenId;
+        this.refreshToken = refreshToken;
+        this.expiresAt = expiresAt;
+        this.refreshExpiresAt = refreshExpiresAt;
+        this.ipAddress = ipAddress;
+        this.userAgent = userAgent;
         this.lastAccessedAt = LocalDateTime.now();
     }
 
@@ -104,8 +134,23 @@ public class UserSession {
     public String getUserAgent() { return userAgent; }
     public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
 
-    public String getDeviceInfo() { return deviceInfo; }
-    public void setDeviceInfo(String deviceInfo) { this.deviceInfo = deviceInfo; }
+    public String getDeviceType() { return deviceType; }
+    public void setDeviceType(String deviceType) { this.deviceType = deviceType; }
+
+    public String getBrowser() { return browser; }
+    public void setBrowser(String browser) { this.browser = browser; }
+
+    public String getOperatingSystem() { return operatingSystem; }
+    public void setOperatingSystem(String operatingSystem) { this.operatingSystem = operatingSystem; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+
+    public String getDeviceFingerprint() { return deviceFingerprint; }
+    public void setDeviceFingerprint(String deviceFingerprint) { this.deviceFingerprint = deviceFingerprint; }
+
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
 
     public LocalDateTime getLastAccessedAt() { return lastAccessedAt; }
     public void setLastAccessedAt(LocalDateTime lastAccessedAt) { this.lastAccessedAt = lastAccessedAt; }

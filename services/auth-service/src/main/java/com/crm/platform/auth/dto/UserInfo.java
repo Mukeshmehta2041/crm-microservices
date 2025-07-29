@@ -6,6 +6,7 @@ import java.util.UUID;
 public class UserInfo {
     private UUID id;
     private String email;
+    private Boolean emailVerified;
     private String firstName;
     private String lastName;
     private String fullName;
@@ -52,6 +53,9 @@ public class UserInfo {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public Boolean getEmailVerified() { return emailVerified; }
+    public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }

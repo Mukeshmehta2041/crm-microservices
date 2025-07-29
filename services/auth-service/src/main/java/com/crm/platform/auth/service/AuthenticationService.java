@@ -42,6 +42,8 @@ public class AuthenticationService {
     private final SecurityAuditService auditService;
     private final RateLimitingService rateLimitingService;
     private final UserServiceClient userServiceClient;
+    private final MfaService mfaService;
+    private final DeviceTrustService deviceTrustService;
 
     @Value("${auth.max-failed-attempts:5}")
     private int maxFailedAttempts;
@@ -62,7 +64,9 @@ public class AuthenticationService {
                                JwtTokenProvider jwtTokenProvider,
                                SecurityAuditService auditService,
                                RateLimitingService rateLimitingService,
-                               UserServiceClient userServiceClient) {
+                               UserServiceClient userServiceClient,
+                               MfaService mfaService,
+                               DeviceTrustService deviceTrustService) {
         this.userCredentialsRepository = userCredentialsRepository;
         this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
@@ -70,6 +74,8 @@ public class AuthenticationService {
         this.auditService = auditService;
         this.rateLimitingService = rateLimitingService;
         this.userServiceClient = userServiceClient;
+        this.mfaService = mfaService;
+        this.deviceTrustService = deviceTrustService;
     }
 
     public LoginResponse authenticate(LoginRequest request, HttpServletRequest httpRequest) {
@@ -111,52 +117,43 @@ public class AuthenticationService {
             throw new InvalidCredentialsException("Invalid username or password");
         }
 
-        // Reset failed attempts on successful login
+        // Reset failed attempts on successful password verification
         if (credentials.getFailedLoginAttempts() > 0) {
             userCredentialsRepository.updateFailedLoginAttempts(credentials.getId(), 0);
         }
 
-        // Fetch user profile information from User Service
-        UserInfo userProfile = userServiceClient.getUserById(credentials.getUserId());
-        if (userProfile == null) {
-            logger.warn("User profile not found for user ID: {}", credentials.getUserId());
-            // Create minimal user info from credentials
-            userProfile = new UserInfo(
-                credentials.getUserId(),
-                credentials.getEmail(),
-                null, null, null, null, null, null,
-                java.util.Set.of(),
-                credentials.getTenantId()
-            );
+        // Check if MFA is required
+        if (Boolean.TRUE.equals(credentials.getMfaEnabled())) {
+            // Check if device is trusted (MFA bypass)
+            boolean isDeviceTrusted = deviceTrustService.isDeviceTrusted(credentials.getUserId(), httpRequest);
+            
+            if (!isDeviceTrusted) {
+                // MFA is required - generate MFA token and return challenge
+                String mfaToken = generateMfaToken(credentials.getUserId(), credentials.getTenantId());
+                
+                // Log MFA challenge
+                auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
+                    "MFA_CHALLENGE_ISSUED", "MFA challenge issued after successful password verification",
+                    SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, null);
+
+                // Return MFA challenge response
+                LoginResponse mfaResponse = new LoginResponse();
+                mfaResponse.setMfaRequired(true);
+                mfaResponse.setMfaToken(mfaToken);
+                mfaResponse.setMfaMethod(credentials.getMfaMethod().name());
+                mfaResponse.setMessage("Multi-factor authentication required");
+                
+                return mfaResponse;
+            } else {
+                // Device is trusted - log bypass
+                auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
+                    "MFA_BYPASSED_TRUSTED_DEVICE", "MFA bypassed due to trusted device",
+                    SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, null);
+            }
         }
 
-        // Generate tokens
-        String tokenId = UUID.randomUUID().toString();
-        String accessToken = jwtTokenProvider.createAccessToken(credentials.getUserId(), credentials.getTenantId(), 
-            List.of(), List.of()); // Empty roles and permissions for now
-        String refreshToken = jwtTokenProvider.createRefreshToken(credentials.getUserId(), credentials.getTenantId());
-
-        // Create session
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime accessTokenExpiry = now.plusSeconds(accessTokenValiditySeconds);
-        LocalDateTime refreshTokenExpiry = now.plusSeconds(refreshTokenValiditySeconds);
-
-        UserSession session = new UserSession(credentials.getUserId(), tokenId, refreshToken, 
-                                            accessTokenExpiry, refreshTokenExpiry);
-        session.setIpAddress(clientIp);
-        session.setUserAgent(userAgent);
-        sessionRepository.save(session);
-
-        // Update last login time
-        userCredentialsRepository.updateLastLoginTime(credentials.getId(), now);
-
-        // Log successful login
-        auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
-            SecurityAuditLog.EVENT_LOGIN_SUCCESS, "User logged in successfully",
-            SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
-
-        return new LoginResponse(accessToken, refreshToken, accessTokenValiditySeconds,
-                               refreshTokenValiditySeconds, userProfile);
+        // Complete login (either no MFA required or trusted device)
+        return completeLogin(credentials, httpRequest);
     }
 
     public LoginResponse refreshToken(RefreshTokenRequest request, HttpServletRequest httpRequest) {
@@ -262,6 +259,247 @@ public class AuthenticationService {
                 SecurityAuditLog.EVENT_LOGIN_FAILURE,
                 "Failed login attempt " + newFailedAttempts + " of " + maxFailedAttempts,
                 SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);
+        }
+    }
+
+    /**
+     * Complete MFA verification and login
+     */
+    public LoginResponse completeMfaLogin(String mfaToken, String mfaCode, String backupCode, 
+                                        HttpServletRequest httpRequest) {
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        try {
+            // Validate MFA token and extract user info
+            UUID userId = extractUserIdFromMfaToken(mfaToken);
+            UserCredentials credentials = userCredentialsRepository.findByUserId(userId)
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid MFA token"));
+
+            // Check if MFA is enabled
+            if (!Boolean.TRUE.equals(credentials.getMfaEnabled())) {
+                throw new AuthenticationException("MFA is not enabled for this user");
+            }
+
+            boolean mfaValid = false;
+            String verificationMethod = null;
+
+            // Try TOTP code first
+            if (mfaCode != null && !mfaCode.trim().isEmpty()) {
+                mfaValid = verifyTotpCode(credentials.getMfaSecret(), mfaCode);
+                verificationMethod = "TOTP";
+            }
+
+            // Try backup code if TOTP failed
+            if (!mfaValid && backupCode != null && !backupCode.trim().isEmpty()) {
+                mfaValid = verifyAndConsumeBackupCode(credentials, backupCode);
+                verificationMethod = "BACKUP_CODE";
+            }
+
+            if (!mfaValid) {
+                auditService.logSecurityEvent(userId, credentials.getTenantId(), 
+                    "MFA_VERIFICATION_FAILED", "MFA verification failed during login",
+                    SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);
+                throw new InvalidCredentialsException("Invalid MFA code");
+            }
+
+            // Log successful MFA verification
+            auditService.logSecurityEvent(userId, credentials.getTenantId(), 
+                "MFA_VERIFICATION_SUCCESS", "MFA verification successful using " + verificationMethod,
+                SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, null);
+
+            // Complete login
+            LoginResponse response = completeLogin(credentials, httpRequest);
+            response.setMfaVerified(true);
+            
+            return response;
+
+        } catch (Exception e) {
+            logger.error("Error completing MFA login", e);
+            throw new AuthenticationException("MFA verification failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Add current device to trusted devices after successful MFA
+     */
+    public void addTrustedDevice(String authorization, String deviceName, 
+                               HttpServletRequest httpRequest) {
+        try {
+            // Extract user ID from authorization token
+            UUID userId = extractUserIdFromToken(authorization);
+            
+            // Create trusted device request
+            com.crm.platform.auth.dto.TrustedDeviceRequest deviceRequest = 
+                new com.crm.platform.auth.dto.TrustedDeviceRequest();
+            deviceRequest.setDeviceName(deviceName);
+            deviceRequest.setDeviceType(detectDeviceType(httpRequest.getHeader("User-Agent")));
+            deviceRequest.setUserAgent(httpRequest.getHeader("User-Agent"));
+            
+            // Add trusted device
+            deviceTrustService.addTrustedDevice(userId, deviceRequest, httpRequest);
+            
+        } catch (Exception e) {
+            logger.error("Error adding trusted device", e);
+            throw new AuthenticationException("Failed to add trusted device: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle MFA recovery using backup codes
+     */
+    public LoginResponse recoverWithBackupCode(String mfaToken, String backupCode, 
+                                             HttpServletRequest httpRequest) {
+        return completeMfaLogin(mfaToken, null, backupCode, httpRequest);
+    }
+
+    /**
+     * Check if MFA recovery is available for user
+     */
+    public boolean isMfaRecoveryAvailable(String mfaToken) {
+        try {
+            UUID userId = extractUserIdFromMfaToken(mfaToken);
+            UserCredentials credentials = userCredentialsRepository.findByUserId(userId)
+                .orElse(null);
+            
+            if (credentials == null || !Boolean.TRUE.equals(credentials.getMfaEnabled())) {
+                return false;
+            }
+
+            // Check if backup codes are available
+            return credentials.getBackupCodes() != null && 
+                   !credentials.getBackupCodes().trim().isEmpty() &&
+                   !credentials.getBackupCodes().equals("[]");
+                   
+        } catch (Exception e) {
+            logger.error("Error checking MFA recovery availability", e);
+            return false;
+        }
+    }
+
+    // Private helper methods
+
+    private LoginResponse completeLogin(UserCredentials credentials, HttpServletRequest httpRequest) {
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        // Fetch user profile information from User Service
+        UserInfo userProfile = userServiceClient.getUserById(credentials.getUserId());
+        if (userProfile == null) {
+            logger.warn("User profile not found for user ID: {}", credentials.getUserId());
+            // Create minimal user info from credentials
+            userProfile = new UserInfo(
+                credentials.getUserId(),
+                credentials.getEmail(),
+                null, null, null, null, null, null,
+                java.util.Set.of(),
+                credentials.getTenantId()
+            );
+        }
+
+        // Generate tokens
+        String tokenId = UUID.randomUUID().toString();
+        String accessToken = jwtTokenProvider.createAccessToken(credentials.getUserId(), credentials.getTenantId(), 
+            List.of(), List.of()); // Empty roles and permissions for now
+        String refreshToken = jwtTokenProvider.createRefreshToken(credentials.getUserId(), credentials.getTenantId());
+
+        // Create session
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime accessTokenExpiry = now.plusSeconds(accessTokenValiditySeconds);
+        LocalDateTime refreshTokenExpiry = now.plusSeconds(refreshTokenValiditySeconds);
+
+        UserSession session = new UserSession(credentials.getUserId(), tokenId, refreshToken, 
+                                            accessTokenExpiry, refreshTokenExpiry);
+        session.setIpAddress(clientIp);
+        session.setUserAgent(userAgent);
+        session.setTenantId(credentials.getTenantId());
+        sessionRepository.save(session);
+
+        // Update last login time
+        userCredentialsRepository.updateLastLoginTime(credentials.getId(), now);
+
+        // Log successful login
+        auditService.logSecurityEvent(credentials.getUserId(), credentials.getTenantId(), 
+            SecurityAuditLog.EVENT_LOGIN_SUCCESS, "User logged in successfully",
+            SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
+
+        return new LoginResponse(accessToken, refreshToken, accessTokenValiditySeconds,
+                               refreshTokenValiditySeconds, userProfile);
+    }
+
+    private String generateMfaToken(UUID userId, UUID tenantId) {
+        // Generate a temporary MFA token (valid for a short time)
+        // In a real implementation, this would be a JWT token with short expiry
+        return "mfa_" + userId.toString() + "_" + System.currentTimeMillis();
+    }
+
+    private UUID extractUserIdFromMfaToken(String mfaToken) {
+        // Extract user ID from MFA token
+        // In a real implementation, this would parse a JWT token
+        try {
+            String[] parts = mfaToken.split("_");
+            if (parts.length >= 2 && "mfa".equals(parts[0])) {
+                return UUID.fromString(parts[1]);
+            }
+        } catch (Exception e) {
+            logger.error("Error extracting user ID from MFA token", e);
+        }
+        throw new InvalidCredentialsException("Invalid MFA token");
+    }
+
+    private UUID extractUserIdFromToken(String authorization) {
+        // Extract user ID from authorization token
+        // In a real implementation, this would parse the JWT token
+        // For now, return a placeholder
+        return UUID.randomUUID();
+    }
+
+    private boolean verifyTotpCode(String secret, String code) {
+        try {
+            // Use the same TOTP verification logic as MfaService
+            // This is a simplified version - in practice, you'd call MfaService
+            return mfaService.verifyTotpCode(secret, code);
+        } catch (Exception e) {
+            logger.error("Error verifying TOTP code", e);
+            return false;
+        }
+    }
+
+    private boolean verifyAndConsumeBackupCode(UserCredentials credentials, String backupCode) {
+        try {
+            // Parse backup codes
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>> typeRef = 
+                new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {};
+            
+            java.util.List<String> backupCodes = objectMapper.readValue(credentials.getBackupCodes(), typeRef);
+            
+            if (backupCodes.remove(backupCode)) {
+                // Update backup codes in database
+                credentials.setBackupCodes(objectMapper.writeValueAsString(backupCodes));
+                userCredentialsRepository.save(credentials);
+                return true;
+            }
+            return false;
+
+        } catch (Exception e) {
+            logger.error("Error verifying backup code", e);
+            return false;
+        }
+    }
+
+    private String detectDeviceType(String userAgent) {
+        if (userAgent == null) {
+            return "Unknown";
+        }
+        
+        userAgent = userAgent.toLowerCase();
+        if (userAgent.contains("mobile") || userAgent.contains("android") || userAgent.contains("iphone")) {
+            return "Mobile";
+        } else if (userAgent.contains("tablet") || userAgent.contains("ipad")) {
+            return "Tablet";
+        } else {
+            return "Desktop";
         }
     }
 

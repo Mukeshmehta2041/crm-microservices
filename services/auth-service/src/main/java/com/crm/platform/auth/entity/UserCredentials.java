@@ -69,11 +69,21 @@ public class UserCredentials {
     @Column(name = "email_verified")
     private Boolean emailVerified = false;
 
-    @Column(name = "two_factor_enabled")
-    private Boolean twoFactorEnabled = false;
+    @Column(name = "mfa_enabled")
+    private Boolean mfaEnabled = false;
 
-    @Column(name = "two_factor_secret")
-    private String twoFactorSecret;
+    @Column(name = "mfa_secret")
+    private String mfaSecret;
+
+    @Column(name = "backup_codes", columnDefinition = "TEXT")
+    private String backupCodes; // JSON array of backup codes
+
+    @Column(name = "mfa_method", length = 20)
+    @Enumerated(EnumType.STRING)
+    private MfaMethod mfaMethod;
+
+    @Column(name = "trusted_devices", columnDefinition = "TEXT")
+    private String trustedDevices; // JSON array of trusted device fingerprints
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -135,11 +145,20 @@ public class UserCredentials {
     public Boolean getEmailVerified() { return emailVerified; }
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
 
-    public Boolean getTwoFactorEnabled() { return twoFactorEnabled; }
-    public void setTwoFactorEnabled(Boolean twoFactorEnabled) { this.twoFactorEnabled = twoFactorEnabled; }
+    public Boolean getMfaEnabled() { return mfaEnabled; }
+    public void setMfaEnabled(Boolean mfaEnabled) { this.mfaEnabled = mfaEnabled; }
 
-    public String getTwoFactorSecret() { return twoFactorSecret; }
-    public void setTwoFactorSecret(String twoFactorSecret) { this.twoFactorSecret = twoFactorSecret; }
+    public String getMfaSecret() { return mfaSecret; }
+    public void setMfaSecret(String mfaSecret) { this.mfaSecret = mfaSecret; }
+
+    public String getBackupCodes() { return backupCodes; }
+    public void setBackupCodes(String backupCodes) { this.backupCodes = backupCodes; }
+
+    public MfaMethod getMfaMethod() { return mfaMethod; }
+    public void setMfaMethod(MfaMethod mfaMethod) { this.mfaMethod = mfaMethod; }
+
+    public String getTrustedDevices() { return trustedDevices; }
+    public void setTrustedDevices(String trustedDevices) { this.trustedDevices = trustedDevices; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -158,5 +177,9 @@ public class UserCredentials {
 
     public enum CredentialStatus {
         ACTIVE, INACTIVE, SUSPENDED, DELETED
+    }
+
+    public enum MfaMethod {
+        TOTP, SMS, EMAIL
     }
 }

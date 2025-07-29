@@ -43,4 +43,34 @@ public class SecurityAuditService {
         
         auditLogRepository.save(auditLog);
     }
+
+    // OAuth2-specific audit methods
+
+    @Async
+    public void logOAuth2Authorization(UUID userId, String clientId, String scope) {
+        logSecurityEvent(userId, null, "OAUTH2_AUTHORIZATION", 
+                        "OAuth2 authorization granted for client: " + clientId + ", scope: " + scope,
+                        SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
+    public void logTokenGeneration(UUID userId, String clientId, String grantType) {
+        logSecurityEvent(userId, null, "OAUTH2_TOKEN_GENERATED", 
+                        "OAuth2 token generated for client: " + clientId + ", grant type: " + grantType,
+                        SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
+    public void logTokenRefresh(UUID userId, String clientId) {
+        logSecurityEvent(userId, null, "OAUTH2_TOKEN_REFRESHED", 
+                        "OAuth2 token refreshed for client: " + clientId,
+                        SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
+    public void logTokenRevocation(UUID userId, String clientId, String token) {
+        logSecurityEvent(userId, null, "OAUTH2_TOKEN_REVOKED", 
+                        "OAuth2 token revoked for client: " + clientId,
+                        SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
 }

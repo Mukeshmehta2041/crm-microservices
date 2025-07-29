@@ -21,6 +21,21 @@ public class LoginResponse {
 
     private UserInfo user;
 
+    // MFA-related fields
+    @JsonProperty("mfa_required")
+    private boolean mfaRequired = false;
+
+    @JsonProperty("mfa_token")
+    private String mfaToken;
+
+    @JsonProperty("mfa_method")
+    private String mfaMethod;
+
+    @JsonProperty("mfa_verified")
+    private boolean mfaVerified = false;
+
+    private String message;
+
     // Constructors
     public LoginResponse() {}
 
@@ -52,5 +67,18 @@ public class LoginResponse {
     public UserInfo getUser() { return user; }
     public void setUser(UserInfo user) { this.user = user; }
 
+    public boolean isMfaRequired() { return mfaRequired; }
+    public void setMfaRequired(boolean mfaRequired) { this.mfaRequired = mfaRequired; }
 
+    public String getMfaToken() { return mfaToken; }
+    public void setMfaToken(String mfaToken) { this.mfaToken = mfaToken; }
+
+    public String getMfaMethod() { return mfaMethod; }
+    public void setMfaMethod(String mfaMethod) { this.mfaMethod = mfaMethod; }
+
+    public boolean isMfaVerified() { return mfaVerified; }
+    public void setMfaVerified(boolean mfaVerified) { this.mfaVerified = mfaVerified; }
+
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
 }

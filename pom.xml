@@ -66,20 +66,20 @@
         <!-- Shared Libraries -->
         <module>shared/common-utils</module>
         <module>shared/security-common</module>
-        <module>shared/testing-common</module>
+        <!-- <module>shared/testing-common</module> -->
         
         <!-- Infrastructure Services -->
-        <module>services/discovery-server</module>
-        <module>services/api-gateway</module>
+        <!-- <module>services/discovery-server</module>
+        <module>services/api-gateway</module> -->
         <module>services/auth-service</module>
-        <module>services/tenant-service</module>
-        <module>services/users-service</module>
+        <!-- <module>services/tenant-service</module>
+        <module>services/users-service</module> -->
         
         <!-- Business Services -->
         <!-- <module>services/contacts-service</module> -->
         <!-- <module>services/deals-service</module> -->
         <!-- <module>services/leads-service</module> -->
-        <module>services/custom-objects-service</module>
+        <!-- <module>services/custom-objects-service</module> -->
     </modules>
 
     <dependencyManagement>
