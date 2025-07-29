@@ -3,8 +3,7 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - "/etc/prometheus/alerts.yml"
 
 scrape_configs:
   # Prometheus itself
@@ -76,4 +75,40 @@ scrape_configs:
   - job_name: 'pipelines-service'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['pipelines-service:8089']
+      - targets: ['pipelines-service:8089']  # Analy
+tics Service
+  - job_name: 'analytics-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['analytics-service:8090']
+
+  # Workflow Service
+  - job_name: 'workflow-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['workflow-service:8091']
+
+  # Custom Objects Service
+  - job_name: 'custom-objects-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['custom-objects-service:8092']
+
+  # Infrastructure monitoring
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093

@@ -1,0 +1,300 @@
+type Query {
+    # Dashboard queries
+    dashboard(id: ID!): Dashboard
+    dashboards(filter: DashboardFilter, pagination: PaginationInput): DashboardConnection
+    defaultDashboard: Dashboard
+    
+    # Report queries
+    report(id: ID!): Report
+    reports(filter: ReportFilter, pagination: PaginationInput): ReportConnection
+    reportExecution(id: ID!): ReportExecution
+    
+    # Analytics queries
+    analyticsQuery(request: AnalyticsQueryInput!): AnalyticsQueryResult
+    realtimeMetrics(measurement: String!): [MetricPoint]
+    trendAnalysis(measurement: String!, timeRange: String): [MetricPoint]
+    performanceMetrics: PerformanceMetrics
+}
+
+type Mutation {
+    # Dashboard mutations
+    createDashboard(input: CreateDashboardInput!): Dashboard
+    updateDashboard(id: ID!, input: UpdateDashboardInput!): Dashboard
+    deleteDashboard(id: ID!): Boolean
+    
+    # Widget mutations
+    addWidget(dashboardId: ID!, input: CreateWidgetInput!): DashboardWidget
+    updateWidget(id: ID!, input: UpdateWidgetInput!): DashboardWidget
+    deleteWidget(id: ID!): Boolean
+    refreshWidget(id: ID!): DashboardWidget
+    
+    # Report mutations
+    createReport(input: CreateReportInput!): Report
+    updateReport(id: ID!, input: UpdateReportInput!): Report
+    deleteReport(id: ID!): Boolean
+    executeReport(id: ID!): ReportExecution
+}
+
+type Subscription {
+    dashboardUpdated(dashboardId: ID!): Dashboard
+    widgetUpdated(widgetId: ID!): DashboardWidget
+    reportExecutionUpdated(reportId: ID!): ReportExecution
+    analyticsAlert(organizationId: String!): AnalyticsAlert
+}
+
+# Dashboard types
+type Dashboard {
+    id: ID!
+    name: String!
+    description: String
+    createdBy: String!
+    organizationId: String!
+    isActive: Boolean!
+    isDefault: Boolean!
+    widgets: [DashboardWidget!]!
+    metrics: DashboardMetrics
+    createdAt: String!
+    updatedAt: String!
+}
+
+type DashboardWidget {
+    id: ID!
+    dashboardId: ID!
+    title: String!
+    type: WidgetType!
+    queryDefinition: String!
+    configuration: JSON
+    positionX: Int!
+    positionY: Int!
+    width: Int!
+    height: Int!
+    refreshInterval: Int!
+    isActive: Boolean!
+    data: JSON
+    lastRefreshed: String
+    createdAt: String!
+    updatedAt: String!
+}
+
+type DashboardMetrics {
+    totalWidgets: Int!
+    activeWidgets: Int!
+    lastUpdated: String!
+    averageRefreshInterval: Float!
+}
+
+# Report types
+type Report {
+    id: ID!
+    name: String!
+    description: String
+    reportType: String!
+    queryDefinition: String!
+    parameters: JSON
+    createdBy: String!
+    organizationId: String!
+    isActive: Boolean!
+    isScheduled: Boolean!
+    scheduleExpression: String
+    lastExecution: ReportExecutionSummary
+    createdAt: String!
+    updatedAt: String!
+}
+
+type ReportExecution {
+    id: ID!
+    report: Report!
+    status: ExecutionStatus!
+    executedBy: String!
+    resultData: JSON
+    errorMessage: String
+    executionTimeMs: Long
+    recordCount: Int
+    executedAt: String!
+}
+
+type ReportExecutionSummary {
+    executionId: ID!
+    status: String!
+    executedAt: String!
+    executionTimeMs: Long
+    recordCount: Int
+    errorMessage: String
+}
+
+# Analytics types
+type AnalyticsQueryResult {
+    data: [JSON!]!
+    metadata: QueryMetadata!
+    executedAt: String!
+    executionTimeMs: Long!
+}
+
+type QueryMetadata {
+    totalRecords: Int!
+    returnedRecords: Int!
+    query: String!
+    parameters: JSON
+    fromCache: Boolean!
+    cacheExpiry: String
+}
+
+type MetricPoint {
+    timestamp: String!
+    value: Float!
+    tags: JSON
+}
+
+type PerformanceMetrics {
+    queryPerformance: [MetricPoint!]!
+    dashboardActivity: [MetricPoint!]!
+}
+
+type AnalyticsAlert {
+    type: String!
+    message: String!
+    data: JSON
+    timestamp: String!
+}
+
+# Enums
+enum WidgetType {
+    CHART_LINE
+    CHART_BAR
+    CHART_PIE
+    CHART_AREA
+    METRIC_SINGLE
+    METRIC_COMPARISON
+    TABLE
+    GAUGE
+    HEATMAP
+    FUNNEL
+}
+
+enum ExecutionStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    CANCELLED
+}
+
+# Input types
+input DashboardFilter {
+    createdBy: String
+    search: String
+    isActive: Boolean
+    isDefault: Boolean
+}
+
+input ReportFilter {
+    reportType: String
+    createdBy: String
+    search: String
+    isActive: Boolean
+    isScheduled: Boolean
+}
+
+input PaginationInput {
+    page: Int = 0
+    size: Int = 20
+    sort: String
+    direction: SortDirection = ASC
+}
+
+enum SortDirection {
+    ASC
+    DESC
+}
+
+input CreateDashboardInput {
+    name: String!
+    description: String
+    isDefault: Boolean = false
+}
+
+input UpdateDashboardInput {
+    name: String
+    description: String
+    isDefault: Boolean
+}
+
+input CreateWidgetInput {
+    title: String!
+    type: WidgetType!
+    queryDefinition: String!
+    configuration: JSON
+    positionX: Int = 0
+    positionY: Int = 0
+    width: Int = 4
+    height: Int = 3
+    refreshInterval: Int = 30
+}
+
+input UpdateWidgetInput {
+    title: String
+    type: WidgetType
+    queryDefinition: String
+    configuration: JSON
+    positionX: Int
+    positionY: Int
+    width: Int
+    height: Int
+    refreshInterval: Int
+}
+
+input CreateReportInput {
+    name: String!
+    description: String
+    reportType: String!
+    queryDefinition: String!
+    parameters: JSON
+    isScheduled: Boolean = false
+    scheduleExpression: String
+}
+
+input UpdateReportInput {
+    name: String
+    description: String
+    reportType: String
+    queryDefinition: String
+    parameters: JSON
+    isScheduled: Boolean
+    scheduleExpression: String
+}
+
+input AnalyticsQueryInput {
+    query: String!
+    parameters: JSON
+    startTime: String
+    endTime: String
+    limit: Int = 1000
+    aggregation: String
+    groupBy: String
+    orderBy: String
+}
+
+# Connection types for pagination
+type DashboardConnection {
+    content: [Dashboard!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+type ReportConnection {
+    content: [Report!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+# Scalar types
+scalar JSON
+scalar Long

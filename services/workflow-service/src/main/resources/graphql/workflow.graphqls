@@ -1,0 +1,351 @@
+scalar JSON
+scalar DateTime
+scalar UUID
+
+type Query {
+    # Workflow Definitions
+    workflowDefinition(id: UUID!): WorkflowDefinition
+    workflowDefinitions(
+        activeOnly: Boolean = false
+        publishedOnly: Boolean = false
+        category: String
+        search: String
+        page: Int = 0
+        size: Int = 20
+    ): WorkflowDefinitionPage
+    
+    workflowVersions(name: String!): [WorkflowDefinition!]!
+    latestWorkflowVersion(name: String!): WorkflowDefinition
+    
+    # Workflow Executions
+    workflowExecution(id: UUID!): WorkflowExecution
+    workflowExecutions(
+        status: ExecutionStatus
+        workflowDefinitionId: UUID
+        triggerType: String
+        page: Int = 0
+        size: Int = 20
+    ): WorkflowExecutionPage
+    
+    runningWorkflowExecutions: [WorkflowExecution!]!
+    
+    # Business Rules
+    businessRule(id: UUID!): BusinessRule
+    businessRules(
+        activeOnly: Boolean = false
+        ruleType: RuleType
+        entityType: String
+        search: String
+        page: Int = 0
+        size: Int = 20
+    ): BusinessRulePage
+    
+    # Statistics
+    workflowStatistics: WorkflowStatistics
+    executionStatistics: ExecutionStatistics
+    businessRuleStatistics: BusinessRuleStatistics
+}
+
+type Mutation {
+    # Workflow Definitions
+    createWorkflowDefinition(input: CreateWorkflowDefinitionInput!): WorkflowDefinition!
+    updateWorkflowDefinition(id: UUID!, input: UpdateWorkflowDefinitionInput!): WorkflowDefinition!
+    publishWorkflowDefinition(id: UUID!): WorkflowDefinition!
+    unpublishWorkflowDefinition(id: UUID!): WorkflowDefinition!
+    activateWorkflowDefinition(id: UUID!): WorkflowDefinition!
+    deactivateWorkflowDefinition(id: UUID!): WorkflowDefinition!
+    cloneWorkflowDefinition(id: UUID!, newName: String!): WorkflowDefinition!
+    deleteWorkflowDefinition(id: UUID!): Boolean!
+    
+    # Workflow Executions
+    startWorkflowExecution(input: StartWorkflowExecutionInput!): WorkflowExecution!
+    cancelWorkflowExecution(id: UUID!): WorkflowExecution!
+    suspendWorkflowExecution(id: UUID!): WorkflowExecution!
+    resumeWorkflowExecution(id: UUID!): WorkflowExecution!
+    retryWorkflowExecution(id: UUID!): WorkflowExecution!
+    
+    # Business Rules
+    createBusinessRule(input: CreateBusinessRuleInput!): BusinessRule!
+    updateBusinessRule(id: UUID!, input: UpdateBusinessRuleInput!): BusinessRule!
+    activateBusinessRule(id: UUID!): BusinessRule!
+    deactivateBusinessRule(id: UUID!): BusinessRule!
+    deleteBusinessRule(id: UUID!): Boolean!
+    testBusinessRule(id: UUID!, testData: JSON!): BusinessRuleTestResult!
+}
+
+type Subscription {
+    workflowExecutionUpdated(executionId: UUID): WorkflowExecution
+    workflowExecutionStarted: WorkflowExecution
+    workflowExecutionCompleted: WorkflowExecution
+    workflowExecutionFailed: WorkflowExecution
+}
+
+# Types
+type WorkflowDefinition {
+    id: UUID!
+    tenantId: UUID!
+    name: String!
+    description: String
+    category: String
+    version: Int!
+    isActive: Boolean!
+    isPublished: Boolean!
+    workflowJson: JSON!
+    triggerConfig: JSON
+    variablesSchema: JSON
+    createdBy: UUID!
+    updatedBy: UUID!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    
+    # Statistics
+    executionCount: Long
+    successfulExecutions: Long
+    failedExecutions: Long
+    
+    # Related data
+    executions(page: Int = 0, size: Int = 20): WorkflowExecutionPage
+    triggers: [WorkflowTrigger!]!
+}
+
+type WorkflowExecution {
+    id: UUID!
+    tenantId: UUID!
+    workflowDefinitionId: UUID!
+    workflowName: String
+    executionKey: String
+    status: ExecutionStatus!
+    triggerType: String
+    triggerData: JSON
+    variables: JSON
+    currentStep: String
+    progressPercentage: Int!
+    startedAt: DateTime!
+    completedAt: DateTime
+    errorMessage: String
+    errorDetails: JSON
+    createdBy: UUID
+    
+    # Calculated fields
+    durationMs: Long
+    totalSteps: Int
+    completedSteps: Int
+    
+    # Related data
+    workflowDefinition: WorkflowDefinition!
+    stepExecutions: [WorkflowStepExecution!]!
+}
+
+type WorkflowStepExecution {
+    id: UUID!
+    tenantId: UUID!
+    workflowExecutionId: UUID!
+    stepId: String!
+    stepName: String!
+    stepType: String!
+    status: StepStatus!
+    inputData: JSON
+    outputData: JSON
+    errorMessage: String
+    errorDetails: JSON
+    startedAt: DateTime
+    completedAt: DateTime
+    durationMs: Long
+    retryCount: Int!
+}
+
+type WorkflowTrigger {
+    id: UUID!
+    tenantId: UUID!
+    workflowDefinitionId: UUID!
+    name: String!
+    triggerType: TriggerType!
+    eventType: String
+    conditions: JSON
+    isActive: Boolean!
+    priority: Int!
+    createdBy: UUID!
+    updatedBy: UUID!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+}
+
+type BusinessRule {
+    id: UUID!
+    tenantId: UUID!
+    name: String!
+    description: String
+    ruleType: RuleType!
+    entityType: String
+    conditions: JSON!
+    actions: JSON!
+    isActive: Boolean!
+    priority: Int!
+    createdBy: UUID!
+    updatedBy: UUID!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    
+    # Statistics
+    executionCount: Long
+    successfulExecutions: Long
+    failedExecutions: Long
+    averageExecutionTimeMs: Float
+}
+
+type BusinessRuleTestResult {
+    success: Boolean!
+    conditionsMet: Boolean!
+    result: JSON
+    executionTimeMs: Long!
+    errorMessage: String
+}
+
+# Statistics Types
+type WorkflowStatistics {
+    totalWorkflows: Long!
+    activeWorkflows: Long!
+    publishedWorkflows: Long!
+}
+
+type ExecutionStatistics {
+    completedCount: Long!
+    failedCount: Long!
+    runningCount: Long!
+    pendingCount: Long!
+    cancelledCount: Long!
+    suspendedCount: Long!
+    totalCount: Long!
+}
+
+type BusinessRuleStatistics {
+    totalRules: Long!
+    activeRules: Long!
+    ruleTypeStats: [RuleTypeStat!]!
+    entityTypeStats: [EntityTypeStat!]!
+}
+
+type RuleTypeStat {
+    ruleType: RuleType!
+    count: Long!
+}
+
+type EntityTypeStat {
+    entityType: String!
+    count: Long!
+}
+
+# Page Types
+type WorkflowDefinitionPage {
+    content: [WorkflowDefinition!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+type WorkflowExecutionPage {
+    content: [WorkflowExecution!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+type BusinessRulePage {
+    content: [BusinessRule!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+# Input Types
+input CreateWorkflowDefinitionInput {
+    name: String!
+    description: String
+    category: String
+    workflowJson: JSON!
+    triggerConfig: JSON
+    variablesSchema: JSON
+}
+
+input UpdateWorkflowDefinitionInput {
+    name: String
+    description: String
+    category: String
+    workflowJson: JSON
+    triggerConfig: JSON
+    variablesSchema: JSON
+}
+
+input StartWorkflowExecutionInput {
+    workflowDefinitionId: UUID!
+    triggerType: String!
+    triggerData: JSON
+    variables: JSON
+}
+
+input CreateBusinessRuleInput {
+    name: String!
+    description: String
+    ruleType: RuleType!
+    entityType: String
+    conditions: JSON!
+    actions: JSON!
+    priority: Int = 0
+}
+
+input UpdateBusinessRuleInput {
+    name: String
+    description: String
+    ruleType: RuleType
+    entityType: String
+    conditions: JSON
+    actions: JSON
+    priority: Int
+}
+
+# Enums
+enum ExecutionStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    CANCELLED
+    SUSPENDED
+}
+
+enum StepStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    SKIPPED
+    CANCELLED
+}
+
+enum TriggerType {
+    EVENT
+    SCHEDULE
+    MANUAL
+    API
+    WEBHOOK
+}
+
+enum RuleType {
+    VALIDATION
+    ASSIGNMENT
+    NOTIFICATION
+    FIELD_UPDATE
+    WORKFLOW_TRIGGER
+}
+
+# Scalar definitions
+scalar Long

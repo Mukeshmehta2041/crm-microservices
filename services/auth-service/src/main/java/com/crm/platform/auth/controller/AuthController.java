@@ -2,88 +2,62 @@ package com.crm.platform.auth.controller;
 
 import com.crm.platform.auth.dto.LoginRequest;
 import com.crm.platform.auth.dto.LoginResponse;
-import com.crm.platform.auth.dto.PasswordResetRequest;
-import com.crm.platform.auth.dto.RefreshTokenRequest;
-import com.crm.platform.auth.service.AuthenticationService;
-import com.crm.platform.common.dto.ApiResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import com.crm.platform.auth.service.AuthService;
+import com.crm.platform.common.logging.BusinessLog;
+import com.crm.platform.common.logging.SecurityLog;
+import com.crm.platform.common.monitoring.Monitored;
+import com.crm.platform.common.monitoring.Timed;
+import com.crm.platform.common.tracing.Traced;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+
+/**
+ * Authentication controller with comprehensive monitoring and logging.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
 
-    private final AuthenticationService authenticationService;
-
     @Autowired
-    public AuthController(AuthenticationService authenticationService) {
-        this.authenticationService = authenticationService;
-    }
+    private AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest) {
-        
-        LoginResponse response = authenticationService.authenticate(request, httpRequest);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request,
-            HttpServletRequest httpRequest) {
-        
-        LoginResponse response = authenticationService.refreshToken(request, httpRequest);
-        return ResponseEntity.ok(ApiResponse.success(response));
+    @Timed(value = "auth.login", description = "User login operation")
+    @Monitored("user-login")
+    @Traced(operationName = "user-login", domain = "authentication", includeParameters = false)
+    @BusinessLog(operation = "user-login", domain = "auth", action = BusinessLog.BusinessAction.PROCESS)
+    @SecurityLog(operation = "user-login", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.authenticate(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(
-            @RequestHeader("Authorization") String authHeader,
-            HttpServletRequest httpRequest) {
-        
-        // Extract token ID from JWT token (this would be implemented in a filter)
-        String tokenId = extractTokenIdFromHeader(authHeader);
-        authenticationService.logout(tokenId, httpRequest);
-        
-        return ResponseEntity.ok(ApiResponse.success("Logged out successfully"));
+    @Monitored("user-logout")
+    @Traced(operationName = "user-logout", domain = "authentication")
+    @SecurityLog(operation = "user-logout", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String token) {
+        authService.logout(token);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refresh")
+    @Timed(value = "auth.refresh", description = "Token refresh operation")
+    @Monitored("token-refresh")
+    @SecurityLog(operation = "token-refresh", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<LoginResponse> refresh(@RequestHeader("Authorization") String refreshToken) {
+        LoginResponse response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/validate")
-    public ResponseEntity<ApiResponse<Boolean>> validateToken(
-            @RequestHeader("Authorization") String authHeader) {
-        
-        String tokenId = extractTokenIdFromHeader(authHeader);
-        boolean isValid = authenticationService.validateToken(tokenId);
-        
-        return ResponseEntity.ok(ApiResponse.success(isValid));
-    }
-
-    @PostMapping("/password/reset")
-    public ResponseEntity<ApiResponse<String>> resetPassword(
-            @Valid @RequestBody PasswordResetRequest request) {
-        
-        // TODO: Implement password reset functionality
-        return ResponseEntity.ok(ApiResponse.success("Password reset email sent"));
-    }
-
-    @GetMapping("/health")
-    public ResponseEntity<ApiResponse<String>> health() {
-        return ResponseEntity.ok(ApiResponse.success("Auth service is healthy"));
-    }
-
-    private String extractTokenIdFromHeader(String authHeader) {
-        // This is a simplified implementation
-        // In a real implementation, you would decode the JWT token to extract the token ID
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            // For now, return a placeholder - this would be properly implemented with JWT parsing
-            return "token-id-placeholder";
-        }
-        return null;
+    @Timed(value = "auth.validate", description = "Token validation operation")
+    @SecurityLog(operation = "token-validation", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<Void> validateToken(@RequestHeader("Authorization") String token) {
+        boolean isValid = authService.validateToken(token);
+        return isValid ? ResponseEntity.ok().build() : ResponseEntity.unauthorized().build();
     }
 }

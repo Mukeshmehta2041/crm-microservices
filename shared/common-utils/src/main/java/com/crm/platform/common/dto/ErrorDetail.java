@@ -3,9 +3,6 @@ package com.crm.platform.common.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Standardized error detail for API responses
- */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorDetail {
     

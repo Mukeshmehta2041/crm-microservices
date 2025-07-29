@@ -1,0 +1,248 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "CRM Business Metrics",
+    "tags": ["crm", "business", "kpi"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Daily Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "crm_users_active_current",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "green",
+                  "value": 100
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Contact Creation Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(crm_contacts_created_total[1h])",
+            "legendFormat": "Contacts/hour"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Contacts per hour"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 9,
+          "x": 6,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Deal Conversion Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(crm_deals_converted_total[24h]) / rate(crm_deals_created_total[24h]) * 100",
+            "legendFormat": "Conversion Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 10
+                },
+                {
+                  "color": "green",
+                  "value": 20
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 9,
+          "x": 15,
+          "y": 0
+        }
+      },
+      {
+        "id": 4,
+        "title": "Revenue Trends",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "crm_revenue_total_current",
+            "legendFormat": "Total Revenue"
+          },
+          {
+            "expr": "crm_pipeline_value_current",
+            "legendFormat": "Pipeline Value"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "USD"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Lead Conversion Funnel",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(crm_leads_created_total[1h])",
+            "legendFormat": "Leads Created"
+          },
+          {
+            "expr": "rate(crm_leads_converted_total[1h])",
+            "legendFormat": "Leads Converted"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Leads per hour"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "Activity Volume",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(crm_activities_created_total[1h])",
+            "legendFormat": "Activities/hour"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Activities per hour"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        }
+      },
+      {
+        "id": 7,
+        "title": "User Login Activity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(crm_users_logins_total[1h])",
+            "legendFormat": "Logins/hour"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Logins per hour"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        }
+      },
+      {
+        "id": 8,
+        "title": "Top KPIs Summary",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "crm_contacts_total_current",
+            "legendFormat": "Total Contacts",
+            "format": "table"
+          },
+          {
+            "expr": "crm_deals_total_current",
+            "legendFormat": "Total Deals",
+            "format": "table"
+          },
+          {
+            "expr": "crm_deals_open_current",
+            "legendFormat": "Open Deals",
+            "format": "table"
+          },
+          {
+            "expr": "crm_revenue_total_current",
+            "legendFormat": "Total Revenue",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 24
+        }
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "refresh": "1m"
+  }
+}

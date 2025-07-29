@@ -1,22 +1,40 @@
+# Multi-stage Dockerfile for API Gateway
+# Stage 1: Build stage
+FROM openjdk:17-jdk-slim as builder
+
+# Install Maven
+RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy parent POM and shared modules first for better caching
+COPY pom.xml .
+COPY shared/ shared/
+
+# Copy service-specific files
+COPY services/api-gateway/pom.xml services/api-gateway/
+COPY services/api-gateway/src services/api-gateway/src
+
+# Build the application
+RUN mvn clean package -pl services/api-gateway -am -DskipTests
+
+# Stage 2: Runtime stage
 FROM openjdk:17-jre-slim
 
-# Create non-root user
-RUN groupadd -r apigateway && useradd -r -g apigateway apigateway
-
-# Set working directory
-WORKDIR /app
+# Create non-root user for security
+RUN groupadd -r crm && useradd -r -g crm crm
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy the pre-built JAR file from local target directory
-COPY services/api-gateway/target/api-gateway-1.0.0-SNAPSHOT.jar app.jar
+WORKDIR /app
+
+# Copy the built JAR from builder stage
+COPY --from=builder /app/services/api-gateway/target/*.jar app.jar
 
 # Change ownership to non-root user
-RUN chown -R apigateway:apigateway /app
-
-# Switch to non-root user
-USER apigateway
+RUN chown -R crm:crm /app
+USER crm
 
 # Expose port
 EXPOSE 8080
@@ -25,8 +43,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# JVM options for production
-ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:G1HeapRegionSize=16m -XX:+UseStringDeduplication"
+# JVM optimization for containers
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"
 
 # Run the application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

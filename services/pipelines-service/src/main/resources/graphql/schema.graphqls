@@ -1,0 +1,331 @@
+# Pipeline GraphQL Schema
+
+type Query {
+    # Get pipeline by ID
+    pipeline(id: ID!): Pipeline
+    
+    # Get all pipelines for tenant
+    pipelines(activeOnly: Boolean = false): [Pipeline!]!
+    
+    # Get default pipeline
+    defaultPipeline: Pipeline
+    
+    # Search pipelines
+    searchPipelines(searchRequest: PipelineSearchInput!): PipelineSearchResult!
+    
+    # Get pipeline templates
+    pipelineTemplates: [Pipeline!]!
+    
+    # Get pipeline analytics
+    pipelineAnalytics(pipelineId: ID!, startDate: String!, endDate: String!): [PipelineAnalytics!]!
+    
+    # Get stage analytics
+    stageAnalytics(stageId: ID!, startDate: String!, endDate: String!): [PipelineAnalytics!]!
+}
+
+type Mutation {
+    # Create pipeline
+    createPipeline(input: PipelineInput!): PipelineResult!
+    
+    # Update pipeline
+    updatePipeline(id: ID!, input: PipelineInput!): PipelineResult!
+    
+    # Delete pipeline
+    deletePipeline(id: ID!): DeleteResult!
+    
+    # Clone pipeline
+    clonePipeline(templateId: ID!, newName: String!): PipelineResult!
+    
+    # Reorder pipelines
+    reorderPipelines(pipelineIds: [ID!]!): ReorderResult!
+    
+    # Create stage
+    createStage(pipelineId: ID!, input: StageInput!): StageResult!
+    
+    # Update stage
+    updateStage(id: ID!, input: StageInput!): StageResult!
+    
+    # Delete stage
+    deleteStage(id: ID!): DeleteResult!
+    
+    # Create automation rule
+    createAutomationRule(input: AutomationRuleInput!): AutomationRuleResult!
+    
+    # Update automation rule
+    updateAutomationRule(id: ID!, input: AutomationRuleInput!): AutomationRuleResult!
+    
+    # Delete automation rule
+    deleteAutomationRule(id: ID!): DeleteResult!
+}
+
+type Subscription {
+    # Pipeline events
+    pipelineUpdated(tenantId: ID!): PipelineEvent!
+    
+    # Stage events
+    stageUpdated(pipelineId: ID!): StageEvent!
+    
+    # Automation rule events
+    automationRuleExecuted(tenantId: ID!): AutomationRuleEvent!
+}
+
+# Types
+
+type Pipeline {
+    id: ID!
+    tenantId: ID!
+    name: String!
+    description: String
+    isActive: Boolean!
+    isDefault: Boolean!
+    displayOrder: Int!
+    templateId: ID
+    configuration: JSON
+    createdAt: String!
+    updatedAt: String!
+    createdBy: ID!
+    updatedBy: ID!
+    stages: [Stage!]!
+    automationRules: [AutomationRule!]!
+    metrics: PipelineMetrics
+}
+
+type Stage {
+    id: ID!
+    pipelineId: ID!
+    name: String!
+    description: String
+    defaultProbability: Float
+    isActive: Boolean!
+    isClosed: Boolean!
+    isWon: Boolean!
+    displayOrder: Int!
+    color: String
+    automationRules: JSON
+    stageConfiguration: JSON
+    createdAt: String!
+    updatedAt: String!
+    createdBy: ID!
+    updatedBy: ID!
+    stageAutomationRules: [AutomationRule!]!
+    metrics: StageMetrics
+}
+
+type AutomationRule {
+    id: ID!
+    tenantId: ID!
+    pipelineId: ID
+    stageId: ID
+    name: String!
+    description: String
+    triggerType: TriggerType!
+    triggerConditions: JSON!
+    actions: JSON!
+    isActive: Boolean!
+    executionOrder: Int!
+    lastExecutedAt: String
+    executionCount: Long!
+    errorCount: Long!
+    createdAt: String!
+    updatedAt: String!
+    createdBy: ID!
+    updatedBy: ID!
+    metrics: RuleMetrics
+}
+
+type PipelineAnalytics {
+    id: ID!
+    tenantId: ID!
+    pipelineId: ID!
+    stageId: ID
+    metricType: MetricType!
+    metricName: String!
+    metricValue: Float!
+    metricUnit: String
+    periodStart: String!
+    periodEnd: String!
+    calculatedAt: String!
+    metadata: JSON
+}
+
+type PipelineMetrics {
+    stageCount: Int
+    automationRuleCount: Int
+    activeStageCount: Int
+    closedStageCount: Int
+}
+
+type StageMetrics {
+    automationRuleCount: Int
+    averageTimeInStage: Float
+    conversionRate: Float
+    dealCount: Int
+}
+
+type RuleMetrics {
+    successRate: Float
+    errorRate: Float
+    averageExecutionTime: Long
+    lastSuccessfulExecution: String
+}
+
+# Search Types
+
+type PipelineSearchResult {
+    content: [Pipeline!]!
+    totalElements: Long!
+    totalPages: Int!
+    size: Int!
+    number: Int!
+    hasNext: Boolean!
+    hasPrevious: Boolean!
+}
+
+# Input Types
+
+input PipelineInput {
+    name: String!
+    description: String
+    isActive: Boolean
+    isDefault: Boolean
+    displayOrder: Int
+    templateId: ID
+    configuration: JSON
+    stages: [StageInput!]
+}
+
+input StageInput {
+    name: String!
+    description: String
+    defaultProbability: Float
+    isActive: Boolean
+    isClosed: Boolean
+    isWon: Boolean
+    displayOrder: Int!
+    color: String
+    automationRules: JSON
+    stageConfiguration: JSON
+}
+
+input AutomationRuleInput {
+    name: String!
+    description: String
+    triggerType: TriggerType!
+    triggerConditions: JSON!
+    actions: JSON!
+    isActive: Boolean
+    executionOrder: Int
+    pipelineId: ID
+    stageId: ID
+}
+
+input PipelineSearchInput {
+    name: String
+    description: String
+    isActive: Boolean
+    isDefault: Boolean
+    templateId: ID
+    createdBy: ID
+    createdAfter: String
+    createdBefore: String
+    updatedAfter: String
+    updatedBefore: String
+    sortBy: String
+    sortDirection: String
+    page: Int
+    size: Int
+}
+
+# Result Types
+
+type PipelineResult {
+    success: Boolean!
+    message: String!
+    data: Pipeline
+    errors: [String!]
+}
+
+type StageResult {
+    success: Boolean!
+    message: String!
+    data: Stage
+    errors: [String!]
+}
+
+type AutomationRuleResult {
+    success: Boolean!
+    message: String!
+    data: AutomationRule
+    errors: [String!]
+}
+
+type DeleteResult {
+    success: Boolean!
+    message: String!
+}
+
+type ReorderResult {
+    success: Boolean!
+    message: String!
+}
+
+# Event Types
+
+type PipelineEvent {
+    eventType: String!
+    pipelineId: ID!
+    tenantId: ID!
+    timestamp: String!
+    data: JSON
+}
+
+type StageEvent {
+    eventType: String!
+    stageId: ID!
+    pipelineId: ID!
+    tenantId: ID!
+    timestamp: String!
+    data: JSON
+}
+
+type AutomationRuleEvent {
+    eventType: String!
+    ruleId: ID!
+    tenantId: ID!
+    timestamp: String!
+    success: Boolean!
+    errorMessage: String
+    data: JSON
+}
+
+# Enums
+
+enum TriggerType {
+    DEAL_CREATED
+    DEAL_UPDATED
+    STAGE_CHANGED
+    PROBABILITY_CHANGED
+    AMOUNT_CHANGED
+    DATE_CHANGED
+    FIELD_UPDATED
+    TIME_BASED
+    ACTIVITY_COMPLETED
+    EMAIL_OPENED
+    EMAIL_CLICKED
+}
+
+enum MetricType {
+    CONVERSION_RATE
+    AVERAGE_TIME_IN_STAGE
+    DEAL_COUNT
+    DEAL_VALUE
+    WIN_RATE
+    LOSS_RATE
+    VELOCITY
+    FORECAST_ACCURACY
+}
+
+# Scalars
+
+scalar JSON
+scalar Long

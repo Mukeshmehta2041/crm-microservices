@@ -1,0 +1,582 @@
+# Contacts GraphQL Schema
+
+extend type Query {
+  # Single contact queries
+  contact(id: UUID!): Contact
+  contactByEmail(email: String!): Contact
+  
+  # Contact list queries
+  contacts(
+    page: PageInput
+    sort: [SortInput!]
+    filters: [FilterInput!]
+    search: String
+    searchFields: [String!]
+    include: [String!]
+    fields: [String!]
+  ): ContactConnection!
+  
+  # Advanced search
+  searchContacts(input: SearchInput!): ContactConnection!
+  
+  # Contact relationships
+  contactRelationships(contactId: UUID!): [ContactRelationship!]!
+  
+  # Duplicate detection
+  findDuplicateContacts(
+    contactId: UUID!
+    threshold: Float = 0.8
+    matchFields: [String!]
+  ): [Contact!]!
+  
+  # Contact analytics
+  contactAnalytics(
+    startDate: DateTime
+    endDate: DateTime
+    groupBy: String
+    filters: [FilterInput!]
+  ): ContactAnalytics!
+  
+  # Contact activities
+  contactActivities(
+    contactId: UUID!
+    types: [String!]
+    page: PageInput
+    sort: [SortInput!]
+  ): ContactActivityConnection!
+}
+
+extend type Mutation {
+  # Contact CRUD operations
+  createContact(input: ContactInput!): ContactMutationResult!
+  updateContact(id: UUID!, input: ContactInput!): ContactMutationResult!
+  deleteContact(id: UUID!): ContactMutationResult!
+  
+  # Bulk operations
+  bulkContactOperation(input: BulkContactOperationInput!): BulkOperationResult!
+  
+  # Contact relationships
+  createContactRelationship(input: ContactRelationshipInput!): ContactRelationshipMutationResult!
+  updateContactRelationship(id: UUID!, input: ContactRelationshipInput!): ContactRelationshipMutationResult!
+  deleteContactRelationship(id: UUID!): ContactRelationshipMutationResult!
+  
+  # Contact merging
+  mergeContacts(input: ContactMergeInput!): ContactMutationResult!
+  
+  # Contact enrichment
+  enrichContact(
+    contactId: UUID!
+    sources: [String!]
+  ): ContactMutationResult!
+  
+  # Import/Export
+  initiateContactImport(input: ContactImportInput!): ContactImportResult!
+  initiateContactExport(input: ContactExportInput!): ContactExportResult!
+}
+
+extend type Subscription {
+  # Contact change notifications
+  contactChanged(contactId: UUID): ContactChangeNotification!
+  
+  # Contact activity notifications
+  contactActivityAdded(contactId: UUID!): ContactActivity!
+  
+  # Import/Export progress
+  contactImportProgress(importId: UUID!): ContactImportProgress!
+  contactExportProgress(exportId: UUID!): ContactExportProgress!
+}
+
+# Contact type
+type Contact implements Entity & TenantEntity & OwnedEntity {
+  id: UUID!
+  tenantId: UUID!
+  accountId: UUID
+  
+  # Basic information
+  firstName: String!
+  lastName: String!
+  fullName: String!
+  email: String
+  phone: String
+  mobile: String
+  title: String
+  department: String
+  
+  # Address information
+  mailingAddress: Address
+  otherAddress: Address
+  
+  # Social and web presence
+  socialProfiles: [SocialProfile!]!
+  website: String
+  linkedInUrl: String
+  twitterHandle: String
+  
+  # Lead information
+  leadSource: String
+  leadScore: Int
+  leadStatus: String
+  
+  # Contact preferences
+  contactStatus: ContactStatus!
+  doNotCall: Boolean!
+  doNotEmail: Boolean!
+  emailOptOut: Boolean!
+  preferredContactMethod: ContactMethod!
+  timezone: String
+  language: String
+  
+  # Tags and categorization
+  tags: [String!]!
+  industry: String
+  
+  # Notes and description
+  notes: String
+  description: String
+  
+  # Custom fields
+  customFields: JSON
+  
+  # Relationships
+  account: Account
+  owner: User!
+  relationships: [ContactRelationship!]!
+  
+  # Activities and interactions
+  activities: [ContactActivity!]!
+  deals: [Deal!]!
+  opportunities: [Deal!]!
+  
+  # Metadata
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  createdBy: UUID!
+  updatedBy: UUID!
+  ownerId: UUID!
+  ownerName: String
+  
+  # Computed fields
+  isActive: Boolean!
+  lastActivityDate: DateTime
+  nextActivityDate: DateTime
+  totalActivities: Int!
+  openDeals: Int!
+  closedDeals: Int!
+  totalDealValue: BigDecimal
+  conversionDate: DateTime
+  daysSinceLastContact: Int
+  engagementScore: Float
+}
+
+# Contact connection for pagination
+type ContactConnection {
+  edges: [ContactEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+  aggregations: ContactAggregations
+}
+
+type ContactEdge {
+  node: Contact!
+  cursor: String!
+}
+
+# Contact aggregations
+type ContactAggregations {
+  totalContacts: Int!
+  byStatus: [StatusCount!]!
+  bySource: [SourceCount!]!
+  byOwner: [OwnerCount!]!
+  averageLeadScore: Float
+  totalValue: BigDecimal
+}
+
+type StatusCount {
+  status: String!
+  count: Int!
+}
+
+type SourceCount {
+  source: String!
+  count: Int!
+}
+
+type OwnerCount {
+  ownerId: UUID!
+  ownerName: String!
+  count: Int!
+}
+
+# Supporting types
+type Address {
+  street: String
+  city: String
+  state: String
+  postalCode: String
+  country: String
+  type: AddressType
+}
+
+type SocialProfile {
+  platform: String!
+  url: String!
+  username: String
+  verified: Boolean!
+}
+
+type ContactRelationship {
+  id: UUID!
+  contactId: UUID!
+  relatedContactId: UUID!
+  relationshipType: String!
+  description: String
+  isPrimary: Boolean!
+  relatedContact: Contact!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContactActivity {
+  id: UUID!
+  contactId: UUID!
+  type: String!
+  subject: String!
+  description: String
+  status: String!
+  priority: String
+  direction: String
+  outcome: String
+  duration: Int
+  scheduledAt: DateTime
+  completedAt: DateTime
+  dueAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  ownerId: UUID!
+  ownerName: String
+  assignedToId: UUID
+  assignedToName: String
+  relatedRecords: JSON
+  customFields: JSON
+  attachmentCount: Int
+  isOverdue: Boolean!
+  reminderSet: Boolean!
+  reminderAt: DateTime
+}
+
+type ContactActivityConnection {
+  edges: [ContactActivityEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ContactActivityEdge {
+  node: ContactActivity!
+  cursor: String!
+}
+
+# Analytics types
+type ContactAnalytics {
+  totalContacts: Int!
+  newContactsThisPeriod: Int!
+  growthRate: Float
+  averageLeadScore: Float
+  contactsByStatus: [StatusCount!]!
+  contactsBySource: [SourceCount!]!
+  contactsByCompany: [CompanyCount!]!
+  contactsByIndustry: [IndustryCount!]!
+  contactsByOwner: [OwnerCount!]!
+  timeSeriesData: [ContactTimeSeriesData!]!
+  topCompanies: [CompanyStats!]!
+  conversionMetrics: ContactConversionMetrics!
+  engagementMetrics: ContactEngagementMetrics!
+}
+
+type CompanyCount {
+  company: String!
+  count: Int!
+}
+
+type IndustryCount {
+  industry: String!
+  count: Int!
+}
+
+type ContactTimeSeriesData {
+  date: DateTime!
+  newContacts: Int!
+  totalContacts: Int!
+  averageLeadScore: Float
+}
+
+type CompanyStats {
+  companyName: String!
+  contactCount: Int!
+  averageLeadScore: Float
+  conversionRate: Float
+}
+
+type ContactConversionMetrics {
+  leadToContactRate: Float
+  contactToOpportunityRate: Float
+  opportunityToCustomerRate: Float
+  averageConversionTime: Float
+}
+
+type ContactEngagementMetrics {
+  averageActivitiesPerContact: Float
+  emailEngagementRate: Float
+  callConnectRate: Float
+  meetingScheduleRate: Float
+}
+
+# Input types
+input ContactInput {
+  accountId: UUID
+  firstName: String!
+  lastName: String!
+  email: String
+  phone: String
+  mobile: String
+  title: String
+  department: String
+  mailingAddress: AddressInput
+  otherAddress: AddressInput
+  socialProfiles: [SocialProfileInput!]
+  website: String
+  linkedInUrl: String
+  twitterHandle: String
+  leadSource: String
+  leadScore: Int
+  leadStatus: String
+  contactStatus: ContactStatus
+  doNotCall: Boolean
+  doNotEmail: Boolean
+  emailOptOut: Boolean
+  preferredContactMethod: ContactMethod
+  timezone: String
+  language: String
+  tags: [String!]
+  industry: String
+  notes: String
+  description: String
+  customFields: JSON
+  ownerId: UUID
+}
+
+input AddressInput {
+  street: String
+  city: String
+  state: String
+  postalCode: String
+  country: String
+  type: AddressType
+}
+
+input SocialProfileInput {
+  platform: String!
+  url: String!
+  username: String
+  verified: Boolean = false
+}
+
+input ContactRelationshipInput {
+  contactId: UUID!
+  relatedContactId: UUID!
+  relationshipType: String!
+  description: String
+  isPrimary: Boolean = false
+}
+
+input ContactMergeInput {
+  primaryContactId: UUID!
+  duplicateContactIds: [UUID!]!
+  fieldMergeStrategy: JSON
+  preserveActivities: Boolean = true
+  preserveRelationships: Boolean = true
+  notifyOwners: Boolean = true
+}
+
+input BulkContactOperationInput {
+  operation: BulkOperationType!
+  contacts: [ContactInput!]
+  contactIds: [UUID!]
+  filters: [FilterInput!]
+  updateFields: JSON
+  validationOnly: Boolean = false
+  continueOnError: Boolean = true
+  batchSize: Int = 100
+  async: Boolean = false
+}
+
+input ContactImportInput {
+  fileUrl: String!
+  fileName: String
+  format: String!
+  fieldMapping: JSON
+  skipDuplicates: Boolean = false
+  updateExisting: Boolean = false
+  duplicateMatchFields: [String!]
+  validateOnly: Boolean = false
+  batchSize: Int = 100
+  skipHeaderRow: Boolean = true
+  delimiter: String = ","
+  encoding: String = "UTF-8"
+  defaultValues: JSON
+}
+
+input ContactExportInput {
+  format: String = "csv"
+  fields: [String!]
+  filters: [FilterInput!]
+  includeCustomFields: Boolean = true
+  includeRelationships: Boolean = false
+}
+
+# Mutation result types
+type ContactMutationResult {
+  success: Boolean!
+  contact: Contact
+  errors: [GraphQLError!]
+  warnings: [String!]
+}
+
+type ContactRelationshipMutationResult {
+  success: Boolean!
+  relationship: ContactRelationship
+  errors: [GraphQLError!]
+}
+
+type ContactImportResult {
+  importId: UUID!
+  status: ImportStatus!
+  fileName: String
+  estimatedRecords: Int
+  validationErrors: [ImportValidationError!]
+}
+
+type ContactExportResult {
+  exportId: UUID!
+  status: ExportStatus!
+  format: String!
+  estimatedRecords: Int
+  downloadUrl: String
+  expiresAt: DateTime
+}
+
+type ImportValidationError {
+  row: Int!
+  field: String
+  errorCode: String!
+  errorMessage: String!
+  value: String
+}
+
+# Subscription notification types
+type ContactChangeNotification {
+  contactId: UUID!
+  operation: String!
+  contact: Contact
+  changes: JSON
+  timestamp: DateTime!
+  userId: UUID!
+}
+
+type ContactImportProgress {
+  importId: UUID!
+  status: ImportStatus!
+  totalRecords: Int
+  processedRecords: Int
+  successfulRecords: Int
+  failedRecords: Int
+  progress: Float
+  errors: [ImportError!]
+  warnings: [ImportWarning!]
+}
+
+type ContactExportProgress {
+  exportId: UUID!
+  status: ExportStatus!
+  totalRecords: Int
+  processedRecords: Int
+  progress: Float
+  downloadUrl: String
+  errorMessage: String
+}
+
+type ImportError {
+  row: Int!
+  field: String
+  errorCode: String!
+  errorMessage: String!
+  value: String
+}
+
+type ImportWarning {
+  row: Int!
+  field: String
+  warningCode: String!
+  warningMessage: String!
+}
+
+# Enums
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  DECEASED
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  MOBILE
+  MAIL
+  SMS
+}
+
+enum AddressType {
+  MAILING
+  BILLING
+  SHIPPING
+  OTHER
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PARTIALLY_COMPLETED
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+# External types (would be defined in other services)
+type Account {
+  id: UUID!
+  name: String!
+  # ... other account fields
+}
+
+type User {
+  id: UUID!
+  firstName: String!
+  lastName: String!
+  email: String!
+  # ... other user fields
+}
+
+type Deal {
+  id: UUID!
+  name: String!
+  amount: BigDecimal
+  # ... other deal fields
+}
