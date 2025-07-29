@@ -4,6 +4,7 @@ import com.crm.platform.auth.dto.OAuth2ClientRequest;
 import com.crm.platform.auth.dto.OAuth2ClientResponse;
 import com.crm.platform.auth.dto.OAuth2ClientUpdateRequest;
 import com.crm.platform.auth.entity.OAuth2Client;
+import com.crm.platform.auth.entity.SecurityAuditLog;
 import com.crm.platform.auth.exception.OAuth2Exception;
 import com.crm.platform.auth.repository.OAuth2AccessTokenRepository;
 import com.crm.platform.auth.repository.OAuth2ClientRepository;

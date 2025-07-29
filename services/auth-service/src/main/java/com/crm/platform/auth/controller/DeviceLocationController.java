@@ -10,7 +10,6 @@ import com.crm.platform.common.monitoring.Monitored;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,8 +39,8 @@ public class DeviceLocationController {
     @Operation(summary = "Get Device Information", description = "Get comprehensive device information from request")
     @Monitored("device-info")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Device information retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device information retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<ApiResponse<DeviceInfo>> getDeviceInfo(HttpServletRequest request) {
         DeviceInfo deviceInfo = deviceLocationService.createDeviceInfo(request);
@@ -51,7 +50,7 @@ public class DeviceLocationController {
     @GetMapping("/detect-device-type")
     @Operation(summary = "Detect Device Type", description = "Detect device type from User-Agent")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Device type detected successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device type detected successfully")
     })
     public ResponseEntity<ApiResponse<Map<String, String>>> detectDeviceType(
             @Parameter(description = "User-Agent header")
@@ -80,7 +79,7 @@ public class DeviceLocationController {
     @Operation(summary = "Generate Device Fingerprint", description = "Generate advanced device fingerprint")
     @Monitored("device-fingerprint")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Device fingerprint generated successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device fingerprint generated successfully")
     })
     public ResponseEntity<ApiResponse<Map<String, String>>> generateDeviceFingerprint(
             HttpServletRequest request) {
@@ -101,8 +100,8 @@ public class DeviceLocationController {
     @Operation(summary = "Get Location Information", description = "Get location information from IP address")
     @Monitored("location-info")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Location information retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid IP address")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Location information retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid IP address")
     })
     public ResponseEntity<ApiResponse<LocationInfo>> getLocationInfo(
             @Parameter(description = "IP address to lookup")
@@ -118,8 +117,8 @@ public class DeviceLocationController {
     @PostMapping("/calculate-distance")
     @Operation(summary = "Calculate Distance", description = "Calculate distance between two locations")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Distance calculated successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid location data")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Distance calculated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid location data")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> calculateDistance(
             @Parameter(description = "First location latitude") @RequestParam double lat1,
@@ -148,8 +147,8 @@ public class DeviceLocationController {
     @Operation(summary = "Detect Suspicious Activity", description = "Analyze device and location for suspicious activity")
     @SecurityLog(operation = "suspicious-activity-detection", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Suspicious activity analysis completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request parameters")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Suspicious activity analysis completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request parameters")
     })
     public ResponseEntity<ApiResponse<List<SuspiciousActivityAlert>>> detectSuspiciousActivity(
             @Parameter(description = "User ID", required = true) @RequestParam UUID userId,
@@ -174,8 +173,8 @@ public class DeviceLocationController {
     @Operation(summary = "Get Device Statistics", description = "Get device usage statistics for a user")
     @SecurityLog(operation = "device-statistics", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Device statistics retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "403", description = "Access denied")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Device statistics retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDeviceStatistics(
             @Parameter(description = "User ID", required = true) @RequestParam UUID userId,
@@ -190,7 +189,7 @@ public class DeviceLocationController {
     @GetMapping("/client-ip")
     @Operation(summary = "Get Client IP", description = "Get the client's IP address")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Client IP retrieved successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Client IP retrieved successfully")
     })
     public ResponseEntity<ApiResponse<Map<String, String>>> getClientIP(HttpServletRequest request) {
         String clientIP = extractClientIpAddress(request);
@@ -210,7 +209,7 @@ public class DeviceLocationController {
     @GetMapping("/request-headers")
     @Operation(summary = "Get Request Headers", description = "Get relevant request headers for debugging")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Request headers retrieved successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Request headers retrieved successfully")
     })
     public ResponseEntity<ApiResponse<Map<String, String>>> getRequestHeaders(HttpServletRequest request) {
         Map<String, String> headers = Map.of(

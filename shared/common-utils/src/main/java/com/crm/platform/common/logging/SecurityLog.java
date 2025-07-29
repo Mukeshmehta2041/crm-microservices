@@ -11,27 +11,27 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SecurityLog {
-    
-    /**
-     * Name of the security operation.
-     */
-    String operation() default "";
-    
-    /**
-     * Type of security operation.
-     */
-    SecurityType type() default SecurityType.OTHER;
-    
-    /**
-     * Risk level of the operation.
-     */
-    RiskLevel riskLevel() default RiskLevel.MEDIUM;
-    
-    enum SecurityType {
-        AUTHENTICATION, AUTHORIZATION, DATA_ACCESS, ADMIN_ACTION, OTHER
-    }
-    
-    enum RiskLevel {
-        LOW, MEDIUM, HIGH, CRITICAL
-    }
+
+  /**
+   * Name of the security operation.
+   */
+  String operation() default "";
+
+  /**
+   * Type of security operation.
+   */
+  SecurityType type() default SecurityType.OTHER;
+
+  /**
+   * Risk level of the operation.
+   */
+  RiskLevel riskLevel() default RiskLevel.MEDIUM;
+
+  enum SecurityType {
+    AUTHENTICATION, AUTHORIZATION, DATA_ACCESS, ADMIN_ACTION, MAINTENANCE, OTHER
+  }
+
+  enum RiskLevel {
+    LOW, MEDIUM, HIGH, CRITICAL
+  }
 }

@@ -1,6 +1,7 @@
 package com.crm.platform.auth.service;
 
 import com.crm.platform.auth.dto.TokenIntrospectionResponse;
+import com.crm.platform.auth.entity.SecurityAuditLog;
 import com.crm.platform.auth.entity.TokenBlacklist;
 import com.crm.platform.auth.entity.UserCredentials;
 import com.crm.platform.auth.entity.UserSession;

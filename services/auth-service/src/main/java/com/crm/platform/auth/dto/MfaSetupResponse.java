@@ -14,6 +14,11 @@ public class MfaSetupResponse {
     @JsonProperty("backup_codes")
     private List<String> backupCodes;
     
+    @JsonProperty("qr_code_url")
+    private String qrCodeUrl;
+    
+    private String instructions;
+    
     @JsonProperty("setup_complete")
     private boolean setupComplete;
 
@@ -39,6 +44,12 @@ public class MfaSetupResponse {
 
     public List<String> getBackupCodes() { return backupCodes; }
     public void setBackupCodes(List<String> backupCodes) { this.backupCodes = backupCodes; }
+
+    public String getQrCodeUrl() { return qrCodeUrl; }
+    public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }
+
+    public String getInstructions() { return instructions; }
+    public void setInstructions(String instructions) { this.instructions = instructions; }
 
     public boolean isSetupComplete() { return setupComplete; }
     public void setSetupComplete(boolean setupComplete) { this.setupComplete = setupComplete; }

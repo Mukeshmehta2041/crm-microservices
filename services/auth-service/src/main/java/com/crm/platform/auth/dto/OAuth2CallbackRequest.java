@@ -1,6 +1,6 @@
 package com.crm.platform.auth.dto;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * OAuth2 callback request DTO

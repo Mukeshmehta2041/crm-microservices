@@ -11,7 +11,6 @@ import com.crm.platform.common.monitoring.Timed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -49,9 +48,9 @@ public class OAuth2ClientController {
     @Monitored("oauth2-client-register")
     @SecurityLog(operation = "oauth2-client-register", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "201", description = "Client registered successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid client data"),
-        @SwaggerApiResponse(responseCode = "409", description = "Client already exists")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Client registered successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid client data"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Client already exists")
     })
     public ResponseEntity<ApiResponse<OAuth2ClientResponse>> registerClient(
             @Parameter(description = "Client registration data", required = true)
@@ -72,9 +71,9 @@ public class OAuth2ClientController {
     @Operation(summary = "Get OAuth2 Client", description = "Retrieve OAuth2 client details by client ID")
     @SecurityLog(operation = "oauth2-client-get", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Client retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "404", description = "Client not found"),
-        @SwaggerApiResponse(responseCode = "403", description = "Access denied")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Client retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Client not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
     })
     public ResponseEntity<ApiResponse<OAuth2ClientResponse>> getClient(
             @Parameter(description = "Client ID", required = true)
@@ -90,8 +89,8 @@ public class OAuth2ClientController {
     @Operation(summary = "List OAuth2 Clients", description = "List OAuth2 clients for a tenant with pagination")
     @SecurityLog(operation = "oauth2-client-list", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Clients retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request parameters")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Clients retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request parameters")
     })
     public ResponseEntity<ApiResponse<Page<OAuth2ClientResponse>>> listClients(
             @Parameter(description = "Tenant ID", required = true)
@@ -122,9 +121,9 @@ public class OAuth2ClientController {
     @Monitored("oauth2-client-update")
     @SecurityLog(operation = "oauth2-client-update", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Client updated successfully"),
-        @SwaggerApiResponse(responseCode = "404", description = "Client not found"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid update data")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Client updated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Client not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid update data")
     })
     public ResponseEntity<ApiResponse<OAuth2ClientResponse>> updateClient(
             @Parameter(description = "Client ID", required = true)
@@ -146,8 +145,8 @@ public class OAuth2ClientController {
     @Monitored("oauth2-client-regenerate-secret")
     @SecurityLog(operation = "oauth2-client-regenerate-secret", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Client secret regenerated successfully"),
-        @SwaggerApiResponse(responseCode = "404", description = "Client not found")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Client secret regenerated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Client not found")
     })
     public ResponseEntity<ApiResponse<OAuth2ClientResponse>> regenerateClientSecret(
             @Parameter(description = "Client ID", required = true)
@@ -168,9 +167,9 @@ public class OAuth2ClientController {
     @Operation(summary = "Delete OAuth2 Client", description = "Delete an OAuth2 client")
     @SecurityLog(operation = "oauth2-client-delete", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "204", description = "Client deleted successfully"),
-        @SwaggerApiResponse(responseCode = "404", description = "Client not found"),
-        @SwaggerApiResponse(responseCode = "409", description = "Client has active tokens")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Client deleted successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Client not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Client has active tokens")
     })
     public ResponseEntity<Void> deleteClient(
             @Parameter(description = "Client ID", required = true)
@@ -192,8 +191,8 @@ public class OAuth2ClientController {
     @Timed(value = "auth.oauth2.client.validate", description = "OAuth2 client credential validation")
     @SecurityLog(operation = "oauth2-client-validate", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Validation completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Validation completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateClientCredentials(
             @Parameter(description = "Client ID", required = true)
@@ -215,8 +214,8 @@ public class OAuth2ClientController {
     @PostMapping("/{clientId}/validate-redirect-uri")
     @Operation(summary = "Validate Redirect URI", description = "Validate if redirect URI is allowed for client")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Validation completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Validation completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateRedirectUri(
             @Parameter(description = "Client ID", required = true)
@@ -239,8 +238,8 @@ public class OAuth2ClientController {
     @PostMapping("/{clientId}/validate-scope")
     @Operation(summary = "Validate Scope", description = "Validate if scope is allowed for client")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Validation completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Validation completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateScope(
             @Parameter(description = "Client ID", required = true)
@@ -265,7 +264,7 @@ public class OAuth2ClientController {
     @GetMapping("/scopes")
     @Operation(summary = "Get Available Scopes", description = "Get list of available OAuth2 scopes")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Scopes retrieved successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Scopes retrieved successfully")
     })
     public ResponseEntity<ApiResponse<Set<String>>> getAvailableScopes() {
         Set<String> scopes = clientManagementService.getAvailableScopes();
@@ -275,7 +274,7 @@ public class OAuth2ClientController {
     @GetMapping("/grant-types")
     @Operation(summary = "Get Supported Grant Types", description = "Get list of supported OAuth2 grant types")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Grant types retrieved successfully")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Grant types retrieved successfully")
     })
     public ResponseEntity<ApiResponse<Set<String>>> getSupportedGrantTypes() {
         Set<String> grantTypes = clientManagementService.getSupportedGrantTypes();

@@ -3,10 +3,8 @@ package com.crm.platform.auth.service;
 import com.crm.platform.auth.dto.*;
 import com.crm.platform.auth.entity.SecurityAuditLog;
 import com.crm.platform.auth.entity.UserCredentials;
-import com.crm.platform.auth.exception.OAuth2Exception;
 import com.crm.platform.auth.repository.UserCredentialsRepository;
 import com.crm.platform.common.exception.BusinessException;
-import com.crm.platform.common.exception.ValidationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +29,7 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -206,8 +205,8 @@ public class MfaService {
             }
 
             // Try backup code if TOTP failed
-            if (!isValid && StringUtils.hasText(request.getBackupCode())) {
-                isValid = verifyAndConsumeBackupCode(credentials, request.getBackupCode());
+            if (!isValid && StringUtils.hasText(request.getCode()) && request.getCode().length() == 8) {
+                isValid = verifyAndConsumeBackupCode(credentials, request.getCode());
                 verificationMethod = "BACKUP_CODE";
             }
 
@@ -268,7 +267,7 @@ public class MfaService {
             // For now, we'll assume it's verified
 
             // Verify MFA code
-            boolean isValid = verifyTotpCode(credentials.getMfaSecret(), request.getMfaCode());
+            boolean isValid = verifyTotpCode(credentials.getMfaSecret(), request.getCode());
             
             if (!isValid) {
                 auditService.logSecurityEvent(userId, credentials.getTenantId(), "MFA_DISABLE_FAILED", 
@@ -326,7 +325,7 @@ public class MfaService {
             MfaBackupCodesResponse response = new MfaBackupCodesResponse();
             response.setBackupCodes(backupCodes);
             response.setRemainingCodes(backupCodes.size());
-            response.setGeneratedAt(LocalDateTime.now()); // Would store actual generation time
+            response.setGeneratedAt(Instant.now()); // Would store actual generation time
 
             return response;
 
@@ -369,7 +368,7 @@ public class MfaService {
             MfaBackupCodesResponse response = new MfaBackupCodesResponse();
             response.setBackupCodes(newBackupCodes);
             response.setRemainingCodes(newBackupCodes.size());
-            response.setGeneratedAt(LocalDateTime.now());
+            response.setGeneratedAt(Instant.now());
 
             logger.info("MFA backup codes regenerated for user: {}", userId);
             return response;

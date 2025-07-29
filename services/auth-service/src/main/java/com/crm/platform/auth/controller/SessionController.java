@@ -13,7 +13,6 @@ import com.crm.platform.common.monitoring.Timed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -54,9 +53,9 @@ public class SessionController {
     @Monitored("session-list")
     @SecurityLog(operation = "session-list", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Sessions retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required"),
-        @SwaggerApiResponse(responseCode = "403", description = "Access denied")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Sessions retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
     })
     public ResponseEntity<ApiResponse<List<SessionInfo>>> listUserSessions(
             @Parameter(description = "Authorization header", required = true)
@@ -70,8 +69,8 @@ public class SessionController {
     @Operation(summary = "List Sessions with Pagination", description = "Get paginated list of user sessions")
     @SecurityLog(operation = "session-list-paginated", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Paginated sessions retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Paginated sessions retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Page<SessionInfo>>> listUserSessionsPaginated(
             @Parameter(description = "Authorization header", required = true)
@@ -115,10 +114,10 @@ public class SessionController {
         int end = Math.min(start + pageable.getPageSize(), sessions.size());
         List<SessionInfo> pageContent = sessions.subList(start, end);
         
-        Page<SessionInfo> page = new org.springframework.data.domain.PageImpl<>(
+        Page<SessionInfo> pageResult = new org.springframework.data.domain.PageImpl<>(
             pageContent, pageable, sessions.size());
 
-        return ResponseEntity.ok(ApiResponse.success(page));
+        return ResponseEntity.ok(ApiResponse.success(pageResult));
     }
 
     // ==================== Current Session ====================
@@ -128,9 +127,9 @@ public class SessionController {
     @Timed(value = "auth.session.current", description = "Current session retrieval")
     @SecurityLog(operation = "session-current", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Current session retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required"),
-        @SwaggerApiResponse(responseCode = "404", description = "Current session not found")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Current session retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Current session not found")
     })
     public ResponseEntity<ApiResponse<SessionInfo>> getCurrentSession(
             @Parameter(description = "Authorization header", required = true)
@@ -144,8 +143,8 @@ public class SessionController {
     @Operation(summary = "Get Current Session with Device Info", description = "Get current session with comprehensive device and location information")
     @Monitored("session-current-detailed")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Detailed session information retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Detailed session information retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCurrentSessionDetailed(
             @Parameter(description = "Authorization header", required = true)
@@ -171,8 +170,8 @@ public class SessionController {
     @Timed(value = "auth.session.validate", description = "Session validation operation")
     @Monitored("session-validate")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session validation completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid validation request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session validation completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid validation request")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateSession(
             @Parameter(description = "Session validation request", required = true)
@@ -187,8 +186,8 @@ public class SessionController {
     @Monitored("session-validate-renew")
     @SecurityLog(operation = "session-validate-renew", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session validated and renewed successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid session or renewal failed")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session validated and renewed successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid session or renewal failed")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateAndRenewSession(
             @Parameter(description = "Session validation request", required = true)
@@ -213,10 +212,10 @@ public class SessionController {
     @Monitored("session-terminate")
     @SecurityLog(operation = "session-terminate", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session terminated successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required"),
-        @SwaggerApiResponse(responseCode = "403", description = "Cannot terminate another user's session"),
-        @SwaggerApiResponse(responseCode = "404", description = "Session not found")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session terminated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Cannot terminate another user's session"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Session not found")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> terminateSession(
             @Parameter(description = "Authorization header", required = true)
@@ -234,8 +233,8 @@ public class SessionController {
     @Monitored("session-terminate-all")
     @SecurityLog(operation = "session-terminate-all", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "All sessions terminated successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "All sessions terminated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> terminateAllSessions(
             @Parameter(description = "Authorization header", required = true)
@@ -250,8 +249,8 @@ public class SessionController {
     @Operation(summary = "Terminate Sessions by Criteria", description = "Terminate sessions matching specific criteria")
     @SecurityLog(operation = "session-terminate-criteria", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Sessions terminated successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid termination criteria")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Sessions terminated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid termination criteria")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> terminateSessionsByCriteria(
             @Parameter(description = "Authorization header", required = true)
@@ -285,10 +284,10 @@ public class SessionController {
     @Monitored("session-renew")
     @SecurityLog(operation = "session-renew", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session renewed successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required"),
-        @SwaggerApiResponse(responseCode = "404", description = "Session not found"),
-        @SwaggerApiResponse(responseCode = "400", description = "Cannot renew inactive session")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session renewed successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Session not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Cannot renew inactive session")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> renewSession(
             @Parameter(description = "Session ID to renew", required = true)
@@ -312,8 +311,8 @@ public class SessionController {
     @Monitored("session-security-check")
     @SecurityLog(operation = "session-security-check", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Security check completed"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Security check completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> performSecurityCheck(
             @Parameter(description = "Authorization header", required = true)
@@ -344,8 +343,8 @@ public class SessionController {
     @Operation(summary = "Get Session Security Events", description = "Get security events related to user sessions")
     @SecurityLog(operation = "session-security-events", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Security events retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Security events retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSecurityEvents(
             @Parameter(description = "Authorization header", required = true)
@@ -376,8 +375,8 @@ public class SessionController {
     @Monitored("session-analytics")
     @SecurityLog(operation = "session-analytics", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session analytics retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session analytics retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSessionAnalytics(
             @Parameter(description = "Authorization header", required = true)
@@ -404,8 +403,8 @@ public class SessionController {
     @GetMapping("/summary")
     @Operation(summary = "Get Session Summary", description = "Get a summary of current session status")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session summary retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "401", description = "Authentication required")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session summary retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSessionSummary(
             @Parameter(description = "Authorization header", required = true)
@@ -444,8 +443,8 @@ public class SessionController {
     @Operation(summary = "Trigger Session Cleanup", description = "Manually trigger cleanup of expired sessions")
     @SecurityLog(operation = "session-cleanup", type = SecurityLog.SecurityType.MAINTENANCE, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Session cleanup completed"),
-        @SwaggerApiResponse(responseCode = "403", description = "Insufficient permissions")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Session cleanup completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> triggerSessionCleanup() {
         

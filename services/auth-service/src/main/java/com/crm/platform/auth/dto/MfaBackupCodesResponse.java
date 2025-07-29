@@ -17,6 +17,9 @@ public class MfaBackupCodesResponse {
     
     @JsonProperty("generated_at")
     private Instant generatedAt;
+    
+    @JsonProperty("remaining_codes")
+    private int remainingCodes;
 
     public MfaBackupCodesResponse() {}
 
@@ -39,4 +42,7 @@ public class MfaBackupCodesResponse {
 
     public Instant getGeneratedAt() { return generatedAt; }
     public void setGeneratedAt(Instant generatedAt) { this.generatedAt = generatedAt; }
+
+    public int getRemainingCodes() { return remainingCodes; }
+    public void setRemainingCodes(int remainingCodes) { this.remainingCodes = remainingCodes; }
 }

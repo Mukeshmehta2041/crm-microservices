@@ -18,6 +18,9 @@ public class MfaVerificationRequest {
     
     @JsonProperty("remember_device")
     private boolean rememberDevice = false;
+    
+    @JsonProperty("backup_code")
+    private String backupCode;
 
     public MfaVerificationRequest() {}
 
@@ -40,4 +43,7 @@ public class MfaVerificationRequest {
 
     public boolean isRememberDevice() { return rememberDevice; }
     public void setRememberDevice(boolean rememberDevice) { this.rememberDevice = rememberDevice; }
+
+    public String getBackupCode() { return backupCode; }
+    public void setBackupCode(String backupCode) { this.backupCode = backupCode; }
 }

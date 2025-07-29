@@ -15,7 +15,6 @@ import com.crm.platform.common.tracing.Traced;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -57,8 +56,8 @@ public class AuthController {
     @GetMapping("/authorize")
     @Operation(summary = "OAuth2 Authorization Endpoint", description = "Initiates OAuth2 authorization code flow")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "302", description = "Redirect to authorization page"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request parameters")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "302", description = "Redirect to authorization page"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request parameters")
     })
     public void authorize(
             @Parameter(description = "Response type (must be 'code')") @RequestParam("response_type") String responseType,

@@ -260,25 +260,32 @@ type AnalyticsUpdate {
   timestamp: DateTime!
 }
 
-# Interface for all entities
-interface Entity {
-  id: UUID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  createdBy: UUID!
-  updatedBy: UUID!
-  customFields: JSON
-}
+# Interface for all entities - commented out to avoid type resolver errors
+# interface Entity {
+#   id: UUID!
+#   createdAt: DateTime!
+#   updatedAt: DateTime!
+#   createdBy: UUID!
+#   updatedBy: UUID!
+#   customFields: JSON
+# }
 
-# Interface for tenant-scoped entities
-interface TenantEntity {
-  tenantId: UUID!
-}
+# Interface for tenant-scoped entities - commented out to avoid type resolver errors
+# interface TenantEntity {
+#   tenantId: UUID!
+# }
 
-# Interface for entities with ownership
-interface OwnedEntity {
-  ownerId: UUID!
-  ownerName: String
+# Interface for entities with ownership - commented out to avoid type resolver errors
+# interface OwnedEntity {
+#   ownerId: UUID!
+#   ownerName: String
+# }
+
+# Root Query type - required by GraphQL
+type Query {
+  # Placeholder query to satisfy GraphQL schema requirements
+  # This will be extended by individual services
+  _empty: String
 }
 
 # Common mutations

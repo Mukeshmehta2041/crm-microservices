@@ -2,6 +2,7 @@ package com.crm.platform.customobjects.controller;
 
 import com.crm.platform.customobjects.dto.*;
 import com.crm.platform.customobjects.service.CustomObjectService;
+import com.crm.platform.common.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,7 @@ public class CustomObjectController {
      * Create a new custom object
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createCustomObject(
+    public ResponseEntity<ApiResponse<CustomObjectResponse>> createCustomObject(
             @RequestHeader("X-Tenant-ID") UUID tenantId,
             @RequestHeader("X-User-ID") UUID userId,
             @Valid @RequestBody CustomObjectRequest request) {
@@ -46,17 +47,7 @@ public class CustomObjectController {
         
         CustomObjectResponse response = customObjectService.createCustomObject(tenantId, request, userId);
         
-        Map<String, Object> result = Map.of(
-            "success", true,
-            "data", response,
-            "meta", Map.of(
-                "timestamp", LocalDateTime.now(),
-                "version", "v1",
-                "processingTime", "fast"
-            )
-        );
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     /**

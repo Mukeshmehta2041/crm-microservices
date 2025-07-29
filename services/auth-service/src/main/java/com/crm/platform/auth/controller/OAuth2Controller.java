@@ -3,7 +3,10 @@ package com.crm.platform.auth.controller;
 import com.crm.platform.auth.dto.OAuth2AuthorizationRequest;
 import com.crm.platform.auth.dto.OAuth2CallbackRequest;
 import com.crm.platform.auth.dto.LoginResponse;
+import com.crm.platform.auth.dto.OAuth2TokenResponse;
+import com.crm.platform.auth.dto.UserInfo;
 import com.crm.platform.auth.service.OAuth2Service;
+import java.util.UUID;
 import com.crm.platform.common.dto.ApiResponse;
 import com.crm.platform.common.logging.SecurityLog;
 import com.crm.platform.common.monitoring.Monitored;
@@ -13,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.Map;
 
 /**
@@ -56,7 +59,18 @@ public class OAuth2Controller {
             @PathVariable String provider,
             @Valid @RequestBody OAuth2CallbackRequest request) {
         
-        LoginResponse response = oauth2Service.processCallback(provider, request);
+        OAuth2TokenResponse oauthResponse = oauth2Service.processCallback(provider, request);
+        
+        // Convert OAuth2TokenResponse to LoginResponse
+        LoginResponse response = new LoginResponse(
+            oauthResponse.getAccessToken(),
+            oauthResponse.getRefreshToken(),
+            oauthResponse.getExpiresIn(),
+            oauthResponse.getExpiresIn() * 7, // refresh token validity
+            new UserInfo(UUID.randomUUID(), "oauth@user.com", "OAuth", "User", 
+                        null, null, null, null, null, UUID.randomUUID())
+        );
+        
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -87,7 +87,7 @@ extend type Subscription {
 }
 
 # Contact type
-type Contact implements Entity & TenantEntity & OwnedEntity {
+type Contact {
   id: UUID!
   tenantId: UUID!
   accountId: UUID

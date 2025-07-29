@@ -10,7 +10,6 @@ import com.crm.platform.common.monitoring.Timed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
@@ -45,9 +44,9 @@ public class TokenController {
     @Monitored("token-introspect")
     @SecurityLog(operation = "token-introspect", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Token introspection completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request"),
-        @SwaggerApiResponse(responseCode = "429", description = "Rate limit exceeded")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token introspection completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     })
     public ResponseEntity<ApiResponse<TokenIntrospectionResponse>> introspectToken(
             @Parameter(description = "Token to introspect", required = true)
@@ -72,9 +71,9 @@ public class TokenController {
     @Monitored("token-revoke")
     @SecurityLog(operation = "token-revoke", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Token revoked successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request"),
-        @SwaggerApiResponse(responseCode = "429", description = "Rate limit exceeded")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token revoked successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> revokeToken(
             @Parameter(description = "Token to revoke", required = true)
@@ -104,9 +103,9 @@ public class TokenController {
     @Operation(summary = "Revoke All User Tokens", description = "Revoke all tokens for a specific user")
     @SecurityLog(operation = "revoke-all-tokens", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.HIGH)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "All tokens revoked successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request"),
-        @SwaggerApiResponse(responseCode = "403", description = "Insufficient permissions")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "All tokens revoked successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> revokeAllUserTokens(
             @Parameter(description = "User ID", required = true)
@@ -139,9 +138,9 @@ public class TokenController {
     @Monitored("token-rotate")
     @SecurityLog(operation = "token-rotate", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Tokens rotated successfully"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid refresh token"),
-        @SwaggerApiResponse(responseCode = "429", description = "Rate limit exceeded")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Tokens rotated successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid refresh token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     })
     public ResponseEntity<ApiResponse<Map<String, String>>> rotateToken(
             @Parameter(description = "Current refresh token", required = true)
@@ -165,8 +164,8 @@ public class TokenController {
     @Operation(summary = "Validate Token", description = "Validate token and check if it's active")
     @Timed(value = "auth.token.validate", description = "Token validation operation")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Token validation completed"),
-        @SwaggerApiResponse(responseCode = "400", description = "Invalid request")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token validation completed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> validateToken(
             @Parameter(description = "Token to validate", required = true)
@@ -186,8 +185,8 @@ public class TokenController {
     @Operation(summary = "Token Statistics", description = "Get token usage statistics")
     @SecurityLog(operation = "token-stats", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-        @SwaggerApiResponse(responseCode = "403", description = "Insufficient permissions")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getTokenStatistics(
             @Parameter(description = "Tenant ID", required = true)
@@ -202,7 +201,7 @@ public class TokenController {
     @GetMapping("/rate-limit")
     @Operation(summary = "Rate Limit Information", description = "Get current rate limit status")
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Rate limit information retrieved")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Rate limit information retrieved")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getRateLimitInfo(
             @Parameter(description = "Operation type")
@@ -228,8 +227,8 @@ public class TokenController {
     @Operation(summary = "Cleanup Expired Tokens", description = "Manually trigger cleanup of expired tokens")
     @SecurityLog(operation = "token-cleanup", type = SecurityLog.SecurityType.MAINTENANCE, riskLevel = SecurityLog.RiskLevel.LOW)
     @ApiResponses(value = {
-        @SwaggerApiResponse(responseCode = "200", description = "Cleanup completed successfully"),
-        @SwaggerApiResponse(responseCode = "403", description = "Insufficient permissions")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cleanup completed successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public ResponseEntity<ApiResponse<Map<String, Object>>> cleanupExpiredTokens() {
         

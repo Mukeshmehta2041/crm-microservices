@@ -66,6 +66,54 @@ public class OAuth2Service {
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
+     * Get authorization URL for OAuth2 provider
+     */
+    public String getAuthorizationUrl(String provider, OAuth2AuthorizationRequest request) {
+        // TODO: Implement provider-specific authorization URL generation
+        return "https://oauth2-provider.com/authorize?" + 
+               "client_id=" + request.getClientId() + 
+               "&redirect_uri=" + request.getRedirectUri() + 
+               "&response_type=code" +
+               "&scope=" + request.getScope();
+    }
+
+    /**
+     * Process OAuth2 callback
+     */
+    public OAuth2TokenResponse processCallback(String provider, OAuth2CallbackRequest request) {
+        // TODO: Implement provider-specific callback processing
+        return new OAuth2TokenResponse("access_token", "refresh_token", 3600L, "scope", "tenant_id");
+    }
+
+    /**
+     * Get available OAuth2 providers
+     */
+    public Map<String, Object> getAvailableProviders() {
+        Map<String, Object> providers = new HashMap<>();
+        providers.put("google", Map.of("name", "Google", "enabled", true));
+        providers.put("microsoft", Map.of("name", "Microsoft", "enabled", true));
+        providers.put("github", Map.of("name", "GitHub", "enabled", true));
+        providers.put("linkedin", Map.of("name", "LinkedIn", "enabled", true));
+        return providers;
+    }
+
+    /**
+     * Link OAuth2 account to user
+     */
+    public void linkAccount(String provider, OAuth2CallbackRequest request) {
+        // TODO: Implement account linking
+        logger.info("Linking account for provider: {}", provider);
+    }
+
+    /**
+     * Unlink OAuth2 account from user
+     */
+    public void unlinkAccount(String provider) {
+        // TODO: Implement account unlinking
+        logger.info("Unlinking account for provider: {}", provider);
+    }
+
+    /**
      * Handle OAuth2 authorization request
      */
     public void authorize(OAuth2AuthorizationRequest request, HttpServletRequest httpRequest, 

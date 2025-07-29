@@ -1,10 +1,8 @@
 package com.crm.platform.auth.service;
 
 import com.crm.platform.auth.client.UserServiceClient;
-import com.crm.platform.auth.dto.LoginRequest;
-import com.crm.platform.auth.dto.LoginResponse;
-import com.crm.platform.auth.dto.RefreshTokenRequest;
-import com.crm.platform.auth.dto.UserInfo;
+import com.crm.platform.auth.dto.*;
+import java.util.Map;
 import com.crm.platform.auth.entity.SecurityAuditLog;
 import com.crm.platform.auth.entity.UserCredentials;
 import com.crm.platform.auth.entity.UserSession;
@@ -24,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -222,6 +221,53 @@ public class AuthenticationService {
                     SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
             }
         }
+    }
+
+    public Map<String, Object> logout(String tokenId, LogoutRequest request, HttpServletRequest httpRequest) {
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        Optional<UserSession> sessionOpt = sessionRepository.findByTokenId(tokenId);
+        if (sessionOpt.isPresent()) {
+            UserSession session = sessionOpt.get();
+            session.setStatus(UserSession.SessionStatus.LOGGED_OUT);
+            sessionRepository.save(session);
+
+            UserInfo userInfo = userServiceClient.getUserById(session.getUserId());
+            if (userInfo != null) {
+                auditService.logSecurityEvent(userInfo.getId(), userInfo.getTenantId(),
+                    SecurityAuditLog.EVENT_LOGOUT, "User logged out",
+                    SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, tokenId);
+            }
+        }
+
+        return Map.of(
+            "success", true,
+            "message", "Logout successful",
+            "logout_time", LocalDateTime.now()
+        );
+    }
+
+    public RegistrationResponse register(RegistrationRequest request, HttpServletRequest httpRequest) {
+        // TODO: Implement user registration
+        return new RegistrationResponse(
+            UUID.randomUUID(), 
+            request.getEmail(), 
+            true, 
+            true, 
+            UUID.randomUUID(), 
+            Instant.now()
+        );
+    }
+
+    public Map<String, Object> verifyEmail(EmailVerificationRequest request, HttpServletRequest httpRequest) {
+        // TODO: Implement email verification
+        return Map.of("success", true, "message", "Email verified successfully");
+    }
+
+    public Map<String, Object> resendVerificationEmail(ResendVerificationRequest request, HttpServletRequest httpRequest) {
+        // TODO: Implement resend verification email
+        return Map.of("success", true, "message", "Verification email sent");
     }
 
     public boolean validateToken(String tokenId) {

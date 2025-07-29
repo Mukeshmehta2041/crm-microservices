@@ -31,14 +31,6 @@ public class OAuth2TokenResponse {
         this.tenantId = tenantId;
     }
 
-    public OAuth2TokenResponse(String accessToken, String tokenType, long expiresIn, String refreshToken, String scope) {
-        this.accessToken = accessToken;
-        this.tokenType = tokenType;
-        this.expiresIn = expiresIn;
-        this.refreshToken = refreshToken;
-        this.scope = scope;
-    }
-
     // Getters and Setters
     public String getAccessToken() { return accessToken; }
     public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
