@@ -261,8 +261,7 @@ public class PasswordService {
         logger.info("Password change requested");
 
         // Extract user from token
-        String token = authorization.replace("Bearer ", "");
-        UUID userId = jwtTokenProvider.getUserIdFromToken(token);
+        UUID userId = tokenManagementService.extractUserIdFromToken(authorization);
         
         // Find user
         Optional<UserCredentials> userOpt = userCredentialsRepository.findByUserId(userId);

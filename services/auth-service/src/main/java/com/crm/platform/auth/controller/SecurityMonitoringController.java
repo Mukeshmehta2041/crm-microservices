@@ -235,7 +235,7 @@ public class SecurityMonitoringController {
         }
     }
 
-    @GetMapping("/alerts")
+    @GetMapping("/monitoring-alerts")
     @Operation(
         summary = "Get security alerts",
         description = "Retrieve recent security alerts and suspicious activities"

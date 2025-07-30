@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
@@ -33,6 +34,7 @@ public class OpenApiConfig {
     private String serverPort;
     
     @Bean
+    @Primary
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(apiInfo())

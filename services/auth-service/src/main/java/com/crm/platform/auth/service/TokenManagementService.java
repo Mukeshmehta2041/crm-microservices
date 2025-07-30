@@ -396,4 +396,15 @@ public class TokenManagementService {
         // Implementation would depend on how tokens are tracked
         logger.debug("Revoking associated tokens for user: {}", userId);
     }
+
+    /**
+     * Extract user ID from authorization header
+     */
+    public UUID extractUserIdFromToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new OAuth2Exception("invalid_token", "Bearer token is missing or invalid");
+        }
+        String token = authorizationHeader.substring(7);
+        return jwtTokenProvider.getUserIdFromToken(token);
+    }
 }

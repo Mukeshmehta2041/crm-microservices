@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import java.util.Map;
 public class ApiDocumentationGenerator {
 
   @Autowired
+  @Qualifier("customOpenAPI")
   private OpenAPI openAPI;
 
   /**
