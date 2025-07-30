@@ -1,50 +1,30 @@
-# Multi-stage Dockerfile for Auth Service
-# Stage 1: Build stage
-FROM eclipse-temurin:17-jdk-alpine as builder
+# Use lightweight Java runtime base image
+FROM eclipse-temurin:17-jre
 
-# Install Maven
-RUN apk add --no-cache maven
+# Create non-root user
+RUN groupadd -g 1001 crm && useradd -m -s /bin/bash -u 1001 -g crm crm
 
-WORKDIR /app
-
-# Copy parent POM and shared modules first for better caching
-COPY pom.xml .
-COPY shared/ shared/
-
-# Copy service-specific files
-COPY services/auth-service/pom.xml services/auth-service/
-COPY services/auth-service/src services/auth-service/src
-
-# Build the application
-RUN mvn clean package -pl services/auth-service -am -DskipTests
-
-# Stage 2: Runtime stage
-FROM eclipse-temurin:17-jre-alpine
-
-# Create non-root user for security
-RUN addgroup -g 1001 crm && adduser -D -s /bin/sh -u 1001 -G crm crm
-
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl for health checks (optional)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the built JAR from builder stage
-COPY --from=builder /app/services/auth-service/target/*.jar app.jar
+# Copy your pre-built jar into the image
+COPY target/*.jar app.jar
 
-# Change ownership to non-root user
+# Set correct ownership
 RUN chown -R crm:crm /app
 USER crm
 
-# Expose port
+# Expose the app port
 EXPOSE 8081
 
-# Health check
+# Health check (optional but recommended)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8081/actuator/health || exit 1
 
-# JVM optimization for containers
+# JVM settings for better container performance
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"
 
-# Run the application
+# Start the app
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
