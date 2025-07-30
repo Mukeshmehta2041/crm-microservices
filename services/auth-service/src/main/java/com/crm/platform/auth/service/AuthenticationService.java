@@ -43,6 +43,7 @@ public class AuthenticationService {
     private final UserServiceClient userServiceClient;
     private final MfaService mfaService;
     private final DeviceTrustService deviceTrustService;
+    private final EmailVerificationService emailVerificationService;
 
     @Value("${auth.max-failed-attempts:5}")
     private int maxFailedAttempts;
@@ -65,7 +66,8 @@ public class AuthenticationService {
                                RateLimitingService rateLimitingService,
                                UserServiceClient userServiceClient,
                                MfaService mfaService,
-                               DeviceTrustService deviceTrustService) {
+                               DeviceTrustService deviceTrustService,
+                               EmailVerificationService emailVerificationService) {
         this.userCredentialsRepository = userCredentialsRepository;
         this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
@@ -75,6 +77,7 @@ public class AuthenticationService {
         this.userServiceClient = userServiceClient;
         this.mfaService = mfaService;
         this.deviceTrustService = deviceTrustService;
+        this.emailVerificationService = emailVerificationService;
     }
 
     public LoginResponse authenticate(LoginRequest request, HttpServletRequest httpRequest) {
@@ -261,13 +264,22 @@ public class AuthenticationService {
     }
 
     public Map<String, Object> verifyEmail(EmailVerificationRequest request, HttpServletRequest httpRequest) {
-        // TODO: Implement email verification
-        return Map.of("success", true, "message", "Email verified successfully");
+        EmailVerificationResponse response = emailVerificationService.verifyEmail(request, httpRequest);
+        return Map.of(
+            "success", true, 
+            "message", response.getMessage(),
+            "email", response.getEmail(),
+            "verified_at", response.getVerifiedAt()
+        );
     }
 
     public Map<String, Object> resendVerificationEmail(ResendVerificationRequest request, HttpServletRequest httpRequest) {
-        // TODO: Implement resend verification email
-        return Map.of("success", true, "message", "Verification email sent");
+        EmailVerificationResponse response = emailVerificationService.resendVerificationEmail(request, httpRequest);
+        return Map.of(
+            "success", true, 
+            "message", response.getMessage(),
+            "expires_at", response.getExpiresAt()
+        );
     }
 
     public boolean validateToken(String tokenId) {

@@ -1,0 +1,1531 @@
+{
+  "info": {
+    "name": "CRM Platform - User Management Service",
+    "description": "Comprehensive collection for CRM Platform User Management Service API endpoints including user management, roles, permissions, teams, and profile management.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set base URL if not already set",
+          "if (!pm.environment.get('users_base_url')) {",
+          "    pm.environment.set('users_base_url', 'http://localhost:8082/api/v1/users');",
+          "}",
+          "",
+          "// Set tenant ID if not already set",
+          "if (!pm.environment.get('tenant_id')) {",
+          "    pm.environment.set('tenant_id', 'default-tenant-uuid');",
+          "}",
+          "",
+          "// Add tenant header to all requests",
+          "pm.request.headers.add({",
+          "    key: 'X-Tenant-ID',",
+          "    value: pm.environment.get('tenant_id')",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{users_base_url}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "List Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Users list returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    pm.expect(responseJson.data.page).to.exist;",
+                  "    pm.expect(responseJson.data.total_elements).to.exist;",
+                  "    ",
+                  "    // Store first user ID for other tests",
+                  "    if (responseJson.data.content.length > 0) {",
+                  "        pm.environment.set('test_user_id', responseJson.data.content[0].id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users?page=0&size=20&sort=createdAt,desc&status=ACTIVE",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt,desc"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            },
+            "description": "Get paginated list of users with filtering"
+          }
+        },
+        {
+          "name": "Search Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Search results returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    pm.expect(responseJson.data.search_time_ms).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"john\",\n  \"filters\": {\n    \"status\": [\"ACTIVE\"],\n    \"roles\": [\"USER\", \"MANAGER\"],\n    \"departments\": [\"Engineering\", \"Product\"],\n    \"created_after\": \"2024-01-01T00:00:00Z\"\n  },\n  \"sort\": [\n    {\n      \"field\": \"last_login_at\",\n      \"direction\": \"desc\"\n    }\n  ],\n  \"page\": 0,\n  \"size\": 20\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/search",
+              "host": ["{{base_url}}"],
+              "path": ["users", "search"]
+            },
+            "description": "Advanced user search with filters"
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User details returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.email).to.exist;",
+                  "    pm.expect(responseJson.data.roles).to.be.an('array');",
+                  "    pm.expect(responseJson.data.teams).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}"]
+            },
+            "description": "Get detailed user information by ID"
+          }
+        },
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique username and email",
+                  "const timestamp = Date.now();",
+                  "const uniqueUsername = `testuser${timestamp}`;",
+                  "const uniqueEmail = `testuser${timestamp}@example.com`;",
+                  "pm.environment.set('unique_username', uniqueUsername);",
+                  "pm.environment.set('unique_email', uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('User created successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.username).to.exist;",
+                  "    pm.expect(responseJson.data.email).to.exist;",
+                  "    ",
+                  "    // Store created user ID for cleanup",
+                  "    pm.environment.set('created_user_id', responseJson.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{unique_username}}\",\n  \"email\": \"{{unique_email}}\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"phone_number\": \"+1234567890\",\n  \"job_title\": \"Software Developer\",\n  \"department\": \"Engineering\",\n  \"timezone\": \"America/New_York\",\n  \"language\": \"en\",\n  \"roles\": [\"USER\"],\n  \"custom_fields\": {\n    \"employee_id\": \"EMP001\",\n    \"hire_date\": \"2024-01-01\"\n  },\n  \"send_welcome_email\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user account"
+          }
+        },
+        {
+          "name": "Update User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User updated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('updated');",
+                  "    pm.expect(responseJson.data.updated_at).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Updated\",\n  \"last_name\": \"User\",\n  \"phone_number\": \"+1234567891\",\n  \"job_title\": \"Senior Software Developer\",\n  \"department\": \"Engineering\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"custom_fields\": {\n    \"employee_id\": \"EMP001\",\n    \"promotion_date\": \"2024-01-15\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{created_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{created_user_id}}"]
+            },
+            "description": "Update user information"
+          }
+        },
+        {
+          "name": "Activate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User activated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('activated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{created_user_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{created_user_id}}", "activate"]
+            },
+            "description": "Activate a user account"
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User deactivated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('deactivated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Test deactivation\",\n  \"transfer_data_to\": \"{{test_user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{created_user_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{created_user_id}}", "deactivate"]
+            },
+            "description": "Deactivate a user account"
+          }
+        },
+        {
+          "name": "Delete User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User deleted successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('deleted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{created_user_id}}?hard_delete=false&transfer_data_to={{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{created_user_id}}"],
+              "query": [
+                {
+                  "key": "hard_delete",
+                  "value": "false"
+                },
+                {
+                  "key": "transfer_data_to",
+                  "value": "{{test_user_id}}"
+                }
+              ]
+            },
+            "description": "Delete user account (soft delete)"
+          }
+        },
+        {
+          "name": "Get User Activity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User activity returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.user_id).to.exist;",
+                  "    pm.expect(responseJson.data.metrics).to.exist;",
+                  "    pm.expect(responseJson.data.activities).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}/activity?startDate=2024-01-01&endDate=2024-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}", "activity"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-01-31"
+                }
+              ]
+            },
+            "description": "Get user activity and engagement metrics"
+          }
+        },
+        {
+          "name": "Export User Data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Export initiated', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.export_id).to.exist;",
+                  "    pm.expect(responseJson.data.download_url).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}/export?format=json&include_activity=true",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json"
+                },
+                {
+                  "key": "include_activity",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Export user data for compliance"
+          }
+        }
+      ],
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Profile Management",
+      "item": [
+        {
+          "name": "Get Current User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.email).to.exist;",
+                  "    pm.expect(responseJson.data.preferences).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current user profile"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile updated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('updated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Profile\",\n  \"phone_number\": \"+1234567890\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"language\": \"en\",\n  \"preferences\": {\n    \"theme\": \"dark\",\n    \"notifications\": {\n      \"email\": true,\n      \"push\": true,\n      \"sms\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Update current user profile"
+          }
+        },
+        {
+          "name": "Upload Profile Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile image uploaded', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.profile_image_url).to.exist;",
+                  "    pm.expect(responseJson.data.uploaded_at).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "avatar.jpg",
+                  "description": "Profile image file (JPEG, PNG, max 5MB)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/avatar",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", "avatar"]
+            },
+            "description": "Upload profile image for current user"
+          }
+        }
+      ],
+      "description": "Profile management endpoints"
+    },
+    {
+      "name": "Role Management",
+      "item": [
+        {
+          "name": "List Roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Roles list returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    ",
+                  "    // Store first role ID for other tests",
+                  "    if (responseJson.data.content.length > 0) {",
+                  "        pm.environment.set('test_role_id', responseJson.data.content[0].id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles?page=0&size=20&search=",
+              "host": ["{{base_url}}"],
+              "path": ["roles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get all available roles"
+          }
+        },
+        {
+          "name": "Create Role",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique role name",
+                  "const timestamp = Date.now();",
+                  "const uniqueRoleName = `TEST_ROLE_${timestamp}`;",
+                  "pm.environment.set('unique_role_name', uniqueRoleName);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Role created successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.permissions).to.be.an('array');",
+                  "    ",
+                  "    // Store created role ID for cleanup",
+                  "    pm.environment.set('created_role_id', responseJson.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{unique_role_name}}\",\n  \"description\": \"Test role for API testing\",\n  \"permissions\": [\n    \"READ_USERS\",\n    \"READ_PROJECTS\",\n    \"WRITE_PROJECTS\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/roles",
+              "host": ["{{base_url}}"],
+              "path": ["roles"]
+            },
+            "description": "Create a new role"
+          }
+        },
+        {
+          "name": "Get Role by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role details returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.permissions).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles/{{test_role_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["roles", "{{test_role_id}}"]
+            },
+            "description": "Get role details by ID"
+          }
+        },
+        {
+          "name": "Update Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role updated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('updated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated test role description\",\n  \"permissions\": [\n    \"READ_USERS\",\n    \"READ_PROJECTS\",\n    \"WRITE_PROJECTS\",\n    \"DELETE_PROJECTS\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/roles/{{created_role_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["roles", "{{created_role_id}}"]
+            },
+            "description": "Update role information"
+          }
+        },
+        {
+          "name": "Assign Role to User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role assigned successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('assigned');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_id\": \"{{created_role_id}}\",\n  \"expires_at\": \"2024-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}/roles",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}", "roles"]
+            },
+            "description": "Assign role to user"
+          }
+        },
+        {
+          "name": "Remove Role from User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role removed successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('removed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}/roles/{{created_role_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}", "roles", "{{created_role_id}}"]
+            },
+            "description": "Remove role from user"
+          }
+        },
+        {
+          "name": "Delete Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Role deleted successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('deleted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles/{{created_role_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["roles", "{{created_role_id}}"]
+            },
+            "description": "Delete role"
+          }
+        }
+      ],
+      "description": "Role management endpoints"
+    },
+    {
+      "name": "Permission Management",
+      "item": [
+        {
+          "name": "List Permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Permissions list returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    ",
+                  "    // Store first permission ID for other tests",
+                  "    if (responseJson.data.content.length > 0) {",
+                  "        pm.environment.set('test_permission_id', responseJson.data.content[0].id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/permissions?page=0&size=20&category=USER_MANAGEMENT",
+              "host": ["{{base_url}}"],
+              "path": ["permissions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "category",
+                  "value": "USER_MANAGEMENT"
+                }
+              ]
+            },
+            "description": "Get all available permissions"
+          }
+        },
+        {
+          "name": "Create Permission",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique permission name",
+                  "const timestamp = Date.now();",
+                  "const uniquePermissionName = `TEST_PERMISSION_${timestamp}`;",
+                  "pm.environment.set('unique_permission_name', uniquePermissionName);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Permission created successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.category).to.exist;",
+                  "    ",
+                  "    // Store created permission ID for cleanup",
+                  "    pm.environment.set('created_permission_id', responseJson.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{unique_permission_name}}\",\n  \"description\": \"Test permission for API testing\",\n  \"category\": \"TESTING\",\n  \"resource\": \"test_resources\",\n  \"action\": \"manage\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/permissions",
+              "host": ["{{base_url}}"],
+              "path": ["permissions"]
+            },
+            "description": "Create a new permission"
+          }
+        },
+        {
+          "name": "Get Permission by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Permission details returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.category).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/permissions/{{test_permission_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["permissions", "{{test_permission_id}}"]
+            },
+            "description": "Get permission details by ID"
+          }
+        },
+        {
+          "name": "Update Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Permission updated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('updated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated test permission description\",\n  \"category\": \"TESTING\",\n  \"resource\": \"test_resources\",\n  \"action\": \"full_manage\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/permissions/{{created_permission_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["permissions", "{{created_permission_id}}"]
+            },
+            "description": "Update permission information"
+          }
+        },
+        {
+          "name": "Delete Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Permission deleted successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('deleted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/permissions/{{created_permission_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["permissions", "{{created_permission_id}}"]
+            },
+            "description": "Delete permission"
+          }
+        }
+      ],
+      "description": "Permission management endpoints"
+    },
+    {
+      "name": "Team Management",
+      "item": [
+        {
+          "name": "List Teams",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Teams list returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    ",
+                  "    // Store first team ID for other tests",
+                  "    if (responseJson.data.content.length > 0) {",
+                  "        pm.environment.set('test_team_id', responseJson.data.content[0].id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teams?page=0&size=20&department=Engineering",
+              "host": ["{{base_url}}"],
+              "path": ["teams"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "department",
+                  "value": "Engineering"
+                }
+              ]
+            },
+            "description": "Get all teams with filtering"
+          }
+        },
+        {
+          "name": "Create Team",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique team name",
+                  "const timestamp = Date.now();",
+                  "const uniqueTeamName = `Test Team ${timestamp}`;",
+                  "pm.environment.set('unique_team_name', uniqueTeamName);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Team created successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.member_count).to.exist;",
+                  "    ",
+                  "    // Store created team ID for cleanup",
+                  "    pm.environment.set('created_team_id', responseJson.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{unique_team_name}}\",\n  \"description\": \"Test team for API testing\",\n  \"department\": \"Engineering\",\n  \"manager_id\": \"{{test_user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams",
+              "host": ["{{base_url}}"],
+              "path": ["teams"]
+            },
+            "description": "Create a new team"
+          }
+        },
+        {
+          "name": "Get Team by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Team details returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.id).to.exist;",
+                  "    pm.expect(responseJson.data.name).to.exist;",
+                  "    pm.expect(responseJson.data.members).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teams/{{test_team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{test_team_id}}"]
+            },
+            "description": "Get team details by ID"
+          }
+        },
+        {
+          "name": "Update Team",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Team updated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('updated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated test team description\",\n  \"department\": \"Product Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{created_team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{created_team_id}}"]
+            },
+            "description": "Update team information"
+          }
+        },
+        {
+          "name": "Add Team Member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Team member added successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('added');",
+                  "    pm.expect(responseJson.data.user_id).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{test_user_id}}\",\n  \"role\": \"MEMBER\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{created_team_id}}/members",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{created_team_id}}", "members"]
+            },
+            "description": "Add user to team"
+          }
+        },
+        {
+          "name": "Remove Team Member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Team member removed successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('removed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teams/{{created_team_id}}/members/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{created_team_id}}", "members", "{{test_user_id}}"]
+            },
+            "description": "Remove user from team"
+          }
+        },
+        {
+          "name": "Delete Team",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Team deleted successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('deleted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teams/{{created_team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{created_team_id}}"]
+            },
+            "description": "Delete team"
+          }
+        }
+      ],
+      "description": "Team management endpoints"
+    },
+    {
+      "name": "Analytics & Reporting",
+      "item": [
+        {
+          "name": "Get User Analytics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User analytics returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.metrics).to.exist;",
+                  "    pm.expect(responseJson.data.trends).to.exist;",
+                  "    pm.expect(responseJson.data.demographics).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/users?period=month&startDate=2024-01-01&endDate=2024-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "users"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-01-31"
+                }
+              ]
+            },
+            "description": "Get user analytics and insights"
+          }
+        },
+        {
+          "name": "Bulk User Operations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Bulk operation completed', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.operation_id).to.exist;",
+                  "    pm.expect(responseJson.data.total_users).to.exist;",
+                  "    pm.expect(responseJson.data.results).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"UPDATE_STATUS\",\n  \"user_ids\": [\"{{test_user_id}}\"],\n  \"parameters\": {\n    \"status\": \"ACTIVE\",\n    \"reason\": \"Bulk activation test\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["users", "bulk"]
+            },
+            "description": "Perform bulk operations on multiple users"
+          }
+        }
+      ],
+      "description": "Analytics and bulk operations"
+    }
+  ]
+}

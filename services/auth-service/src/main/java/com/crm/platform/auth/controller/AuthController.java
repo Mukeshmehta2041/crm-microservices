@@ -6,7 +6,10 @@ import com.crm.platform.auth.service.OAuth2Service;
 import com.crm.platform.auth.service.PasswordService;
 import com.crm.platform.auth.service.SessionService;
 import com.crm.platform.auth.service.MfaService;
+import com.crm.platform.auth.service.TokenManagementService;
+import com.crm.platform.auth.service.EmailVerificationService;
 import com.crm.platform.common.dto.ApiResponse;
+import com.crm.platform.common.exception.ValidationException;
 import com.crm.platform.common.logging.BusinessLog;
 import com.crm.platform.common.logging.SecurityLog;
 import com.crm.platform.common.monitoring.Monitored;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Comprehensive Authentication controller implementing OAuth2, MFA, session management, and security features.
@@ -50,6 +54,12 @@ public class AuthController {
     
     @Autowired
     private MfaService mfaService;
+    
+    @Autowired
+    private TokenManagementService tokenManagementService;
+    
+    @Autowired
+    private EmailVerificationService emailVerificationService;
 
     // ==================== OAuth2 Authorization Flows ====================
 
@@ -205,6 +215,50 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    @GetMapping("/password/policy")
+    @Operation(summary = "Get Password Policy", description = "Get password policy requirements")
+    public ResponseEntity<ApiResponse<PasswordPolicyResponse>> getPasswordPolicy() {
+        
+        PasswordPolicyResponse policy = passwordService.getPasswordPolicy();
+        return ResponseEntity.ok(ApiResponse.success(policy));
+    }
+
+    @PostMapping("/password/validate")
+    @Operation(summary = "Validate Password", description = "Validate password strength and compliance")
+    @SecurityLog(operation = "password-validate", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<ApiResponse<PasswordValidationResult>> validatePassword(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody Map<String, String> request) {
+        
+        String password = request.get("password");
+        if (password == null || password.trim().isEmpty()) {
+            throw new ValidationException("Password is required");
+        }
+
+        UUID userId = null;
+        if (authorization != null) {
+            try {
+                userId = tokenManagementService.extractUserIdFromToken(authorization);
+            } catch (Exception e) {
+                // Ignore - validation can work without user context
+            }
+        }
+        
+        PasswordValidationResult result = passwordService.validatePassword(password, userId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/password/expiration")
+    @Operation(summary = "Check Password Expiration", description = "Check password expiration status for current user")
+    @SecurityLog(operation = "password-expiration-check", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<ApiResponse<PasswordExpirationInfo>> checkPasswordExpiration(
+            @RequestHeader("Authorization") String authorization) {
+        
+        UUID userId = tokenManagementService.extractUserIdFromToken(authorization);
+        PasswordExpirationInfo info = passwordService.checkPasswordExpiration(userId);
+        return ResponseEntity.ok(ApiResponse.success(info));
+    }
+
     // ==================== Email Verification ====================
 
     @PostMapping("/email/verify")
@@ -229,6 +283,40 @@ public class AuthController {
         
         Map<String, Object> result = authenticationService.resendVerificationEmail(request, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/email/verification-status")
+    @Operation(summary = "Get Email Verification Status", description = "Get email verification status and pending verifications")
+    @SecurityLog(operation = "email-verification-status", type = SecurityLog.SecurityType.AUTHORIZATION, riskLevel = SecurityLog.RiskLevel.LOW)
+    public ResponseEntity<ApiResponse<EmailVerificationStatusResponse>> getEmailVerificationStatus(
+            @RequestParam("email") String email) {
+        
+        EmailVerificationStatusResponse status = emailVerificationService.getVerificationStatus(email);
+        return ResponseEntity.ok(ApiResponse.success(status));
+    }
+
+    @PostMapping("/email/change")
+    @Operation(summary = "Request Email Change", description = "Request email address change with verification")
+    @SecurityLog(operation = "email-change-request", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
+    public ResponseEntity<ApiResponse<EmailVerificationResponse>> requestEmailChange(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody EmailChangeRequest request,
+            HttpServletRequest httpRequest) {
+        
+        UUID userId = tokenManagementService.extractUserIdFromToken(authorization);
+        EmailVerificationResponse response = emailVerificationService.requestEmailChange(userId, request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/email/verify-change")
+    @Operation(summary = "Verify Email Change", description = "Verify email address change using verification token")
+    @SecurityLog(operation = "email-change-verify", type = SecurityLog.SecurityType.AUTHENTICATION, riskLevel = SecurityLog.RiskLevel.MEDIUM)
+    public ResponseEntity<ApiResponse<EmailVerificationResponse>> verifyEmailChange(
+            @Valid @RequestBody EmailVerificationRequest request,
+            HttpServletRequest httpRequest) {
+        
+        EmailVerificationResponse response = emailVerificationService.verifyEmail(request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // ==================== Session Management ====================

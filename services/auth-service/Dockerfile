@@ -1,9 +1,9 @@
 # Multi-stage Dockerfile for Auth Service
 # Stage 1: Build stage
-FROM openjdk:17-jdk-slim as builder
+FROM eclipse-temurin:17-jdk-alpine as builder
 
 # Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache maven
 
 WORKDIR /app
 
@@ -19,13 +19,13 @@ COPY services/auth-service/src services/auth-service/src
 RUN mvn clean package -pl services/auth-service -am -DskipTests
 
 # Stage 2: Runtime stage
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # Create non-root user for security
-RUN groupadd -r crm && useradd -r -g crm crm
+RUN addgroup -g 1001 crm && adduser -D -s /bin/sh -u 1001 -G crm crm
 
 # Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
