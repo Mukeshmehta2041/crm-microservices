@@ -251,10 +251,11 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, UUID> {
                                              @Param("cutoffDate") LocalDateTime cutoffDate);
 
     /**
-     * Get average team tenure
+     * Get average team tenure (simplified for H2 compatibility)
      */
-    @Query("SELECT AVG(DATEDIFF(COALESCE(tm.leftAt, CURRENT_TIMESTAMP), tm.joinedAt)) " +
-           "FROM TeamMember tm WHERE tm.teamId = :teamId")
+    @Query(value = "SELECT AVG(DATEDIFF('DAY', tm.joined_at, COALESCE(tm.left_at, CURRENT_TIMESTAMP))) " +
+           "FROM team_members tm WHERE tm.team_id = :teamId AND tm.joined_at IS NOT NULL", 
+           nativeQuery = true)
     Double getAverageTeamTenure(@Param("teamId") UUID teamId);
 
     /**

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy your pre-built jar into the image
-COPY target/*.jar app.jar
+COPY services/auth-service/target/*.jar app.jar
 
 # Set correct ownership
 RUN chown -R crm:crm /app

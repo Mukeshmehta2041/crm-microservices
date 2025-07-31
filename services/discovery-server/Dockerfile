@@ -1,36 +1,16 @@
-# Multi-stage Dockerfile for Discovery Server
-# Stage 1: Build stage
-FROM openjdk:17-jdk-slim as builder
-
-# Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy parent POM and shared modules first for better caching
-COPY pom.xml .
-COPY shared/ shared/
-
-# Copy service-specific files
-COPY services/discovery-server/pom.xml services/discovery-server/
-COPY services/discovery-server/src services/discovery-server/src
-
-# Build the application
-RUN mvn clean package -pl services/discovery-server -am -DskipTests
-
-# Stage 2: Runtime stage
-FROM openjdk:17-jre-slim
+# Use lightweight Java runtime base image
+FROM eclipse-temurin:17-jre
 
 # Create non-root user for security
-RUN groupadd -r crm && useradd -r -g crm crm
+RUN groupadd -g 1001 crm && useradd -m -s /bin/bash -u 1001 -g crm crm
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the built JAR from builder stage
-COPY --from=builder /app/services/discovery-server/target/*.jar app.jar
+# Copy the pre-built JAR file
+COPY services/discovery-server/target/*.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R crm:crm /app

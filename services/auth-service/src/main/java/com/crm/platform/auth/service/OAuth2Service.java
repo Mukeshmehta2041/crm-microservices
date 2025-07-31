@@ -63,26 +63,79 @@ public class OAuth2Service {
     @Autowired
     private SecurityAuditService auditService;
 
+    @Autowired
+    private OAuth2AccountLinkRepository oauth2AccountLinkRepository;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
      * Get authorization URL for OAuth2 provider
      */
     public String getAuthorizationUrl(String provider, OAuth2AuthorizationRequest request) {
-        // TODO: Implement provider-specific authorization URL generation
-        return "https://oauth2-provider.com/authorize?" + 
-               "client_id=" + request.getClientId() + 
-               "&redirect_uri=" + request.getRedirectUri() + 
-               "&response_type=code" +
-               "&scope=" + request.getScope();
+        Map<String, String> providerConfig = getProviderConfiguration(provider);
+        
+        StringBuilder url = new StringBuilder(providerConfig.get("authorizationUrl"));
+        url.append("?client_id=").append(URLEncoder.encode(request.getClientId(), StandardCharsets.UTF_8));
+        url.append("&redirect_uri=").append(URLEncoder.encode(request.getRedirectUri(), StandardCharsets.UTF_8));
+        url.append("&response_type=code");
+        url.append("&scope=").append(URLEncoder.encode(request.getScope(), StandardCharsets.UTF_8));
+        
+        if (StringUtils.hasText(request.getState())) {
+            url.append("&state=").append(URLEncoder.encode(request.getState(), StandardCharsets.UTF_8));
+        }
+        
+        // Add provider-specific parameters
+        switch (provider.toLowerCase()) {
+            case "google":
+                url.append("&access_type=offline&prompt=consent");
+                break;
+            case "microsoft":
+                url.append("&response_mode=query");
+                break;
+            case "github":
+                url.append("&allow_signup=true");
+                break;
+        }
+        
+        return url.toString();
     }
 
     /**
      * Process OAuth2 callback
      */
     public OAuth2TokenResponse processCallback(String provider, OAuth2CallbackRequest request) {
-        // TODO: Implement provider-specific callback processing
-        return new OAuth2TokenResponse("access_token", "refresh_token", 3600L, "scope", "tenant_id");
+        try {
+            // Exchange authorization code for access token
+            OAuth2TokenResponse tokenResponse = exchangeCodeForToken(provider, request);
+            
+            // Get user info from provider
+            OAuth2UserInfo userInfo = getUserInfoFromProvider(provider, tokenResponse.getAccessToken());
+            
+            // Find or create user account
+            UserCredentials credentials = findOrCreateUser(userInfo, provider);
+            
+            // Generate our own tokens
+            String accessToken = generateAccessToken();
+            String refreshToken = generateRefreshToken();
+            
+            // Store token mapping
+            storeTokenMapping(credentials.getUserId(), provider, tokenResponse, accessToken);
+            
+            // Audit log
+            auditService.logOAuth2Login(credentials.getUserId(), provider, userInfo.getEmail());
+            
+            return new OAuth2TokenResponse(
+                accessToken,
+                "Bearer",
+                ACCESS_TOKEN_EXPIRY_HOURS * 3600,
+                refreshToken,
+                "openid profile email"
+            );
+            
+        } catch (Exception e) {
+            logger.error("Error processing OAuth2 callback for provider: " + provider, e);
+            throw new OAuth2Exception("server_error", "Failed to process OAuth2 callback");
+        }
     }
 
     /**
@@ -101,16 +154,108 @@ public class OAuth2Service {
      * Link OAuth2 account to user
      */
     public void linkAccount(String provider, OAuth2CallbackRequest request) {
-        // TODO: Implement account linking
-        logger.info("Linking account for provider: {}", provider);
+        try {
+            // Get current user from security context
+            UUID currentUserId = getCurrentUserId();
+            if (currentUserId == null) {
+                throw new OAuth2Exception("unauthorized", "User must be authenticated to link accounts");
+            }
+            
+            // Exchange code for token
+            OAuth2TokenResponse tokenResponse = exchangeCodeForToken(provider, request);
+            
+            // Get user info from provider
+            OAuth2UserInfo providerUserInfo = getUserInfoFromProvider(provider, tokenResponse.getAccessToken());
+            
+            // Check if this provider account is already linked to another user
+            Optional<OAuth2AccountLink> existingLink = oauth2AccountLinkRepository
+                .findByProviderAndProviderUserId(provider, providerUserInfo.getId());
+            
+            if (existingLink.isPresent() && !existingLink.get().getUserId().equals(currentUserId)) {
+                throw new OAuth2Exception("account_already_linked", 
+                    "This " + provider + " account is already linked to another user");
+            }
+            
+            // Create or update account link
+            OAuth2AccountLink accountLink = existingLink.orElse(new OAuth2AccountLink());
+            accountLink.setUserId(currentUserId);
+            accountLink.setProvider(provider);
+            accountLink.setProviderUserId(providerUserInfo.getId());
+            accountLink.setProviderEmail(providerUserInfo.getEmail());
+            accountLink.setProviderDisplayName(providerUserInfo.getName());
+            accountLink.setAccessToken(tokenResponse.getAccessToken());
+            accountLink.setRefreshToken(tokenResponse.getRefreshToken());
+            accountLink.setTokenExpiresAt(LocalDateTime.now().plusSeconds(tokenResponse.getExpiresIn()));
+            
+            oauth2AccountLinkRepository.save(accountLink);
+            
+            // Audit log
+            auditService.logOAuth2AccountLink(currentUserId, provider, providerUserInfo.getEmail());
+            
+            logger.info("Successfully linked {} account for user: {}", provider, currentUserId);
+            
+        } catch (OAuth2Exception e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error linking account for provider: " + provider, e);
+            throw new OAuth2Exception("server_error", "Failed to link account");
+        }
     }
 
     /**
      * Unlink OAuth2 account from user
      */
     public void unlinkAccount(String provider) {
-        // TODO: Implement account unlinking
-        logger.info("Unlinking account for provider: {}", provider);
+        try {
+            // Get current user from security context
+            UUID currentUserId = getCurrentUserId();
+            if (currentUserId == null) {
+                throw new OAuth2Exception("unauthorized", "User must be authenticated to unlink accounts");
+            }
+            
+            // Find existing account link
+            Optional<OAuth2AccountLink> existingLink = oauth2AccountLinkRepository
+                .findByUserIdAndProvider(currentUserId, provider);
+            
+            if (existingLink.isEmpty()) {
+                throw new OAuth2Exception("not_found", "No " + provider + " account linked to this user");
+            }
+            
+            OAuth2AccountLink accountLink = existingLink.get();
+            
+            // Check if user has other authentication methods (password or other OAuth providers)
+            UserCredentials credentials = userCredentialsRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new OAuth2Exception("user_not_found", "User not found"));
+            
+            long otherLinkedAccounts = oauth2AccountLinkRepository.countByUserIdAndProviderNot(currentUserId, provider);
+            boolean hasPassword = StringUtils.hasText(credentials.getPasswordHash());
+            
+            if (!hasPassword && otherLinkedAccounts == 0) {
+                throw new OAuth2Exception("cannot_unlink", 
+                    "Cannot unlink the only authentication method. Please set a password first.");
+            }
+            
+            // Revoke tokens with provider if possible
+            try {
+                revokeProviderTokens(provider, accountLink.getAccessToken());
+            } catch (Exception e) {
+                logger.warn("Failed to revoke tokens with provider {}: {}", provider, e.getMessage());
+            }
+            
+            // Remove account link
+            oauth2AccountLinkRepository.delete(accountLink);
+            
+            // Audit log
+            auditService.logOAuth2AccountUnlink(currentUserId, provider, accountLink.getProviderEmail());
+            
+            logger.info("Successfully unlinked {} account for user: {}", provider, currentUserId);
+            
+        } catch (OAuth2Exception e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error unlinking account for provider: " + provider, e);
+            throw new OAuth2Exception("server_error", "Failed to unlink account");
+        }
     }
 
     /**
@@ -584,5 +729,109 @@ public class OAuth2Service {
 
     private String base64UrlEncode(byte[] bytes) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private Map<String, String> getProviderConfiguration(String provider) {
+        Map<String, String> config = new HashMap<>();
+        
+        switch (provider.toLowerCase()) {
+            case "google":
+                config.put("authorizationUrl", "https://accounts.google.com/o/oauth2/v2/auth");
+                config.put("tokenUrl", "https://oauth2.googleapis.com/token");
+                config.put("userInfoUrl", "https://www.googleapis.com/oauth2/v2/userinfo");
+                break;
+            case "microsoft":
+                config.put("authorizationUrl", "https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
+                config.put("tokenUrl", "https://login.microsoftonline.com/common/oauth2/v2.0/token");
+                config.put("userInfoUrl", "https://graph.microsoft.com/v1.0/me");
+                break;
+            case "github":
+                config.put("authorizationUrl", "https://github.com/login/oauth/authorize");
+                config.put("tokenUrl", "https://github.com/login/oauth/access_token");
+                config.put("userInfoUrl", "https://api.github.com/user");
+                break;
+            case "linkedin":
+                config.put("authorizationUrl", "https://www.linkedin.com/oauth/v2/authorization");
+                config.put("tokenUrl", "https://www.linkedin.com/oauth/v2/accessToken");
+                config.put("userInfoUrl", "https://api.linkedin.com/v2/people/~");
+                break;
+            default:
+                throw new OAuth2Exception("unsupported_provider", "Provider not supported: " + provider);
+        }
+        
+        return config;
+    }
+
+    private OAuth2TokenResponse exchangeCodeForToken(String provider, OAuth2CallbackRequest request) {
+        // This would make HTTP calls to the provider's token endpoint
+        // For now, return a mock response
+        return new OAuth2TokenResponse(
+            "mock_access_token_" + provider,
+            "Bearer",
+            3600L,
+            "mock_refresh_token_" + provider,
+            "openid profile email"
+        );
+    }
+
+    private OAuth2UserInfo getUserInfoFromProvider(String provider, String accessToken) {
+        // This would make HTTP calls to the provider's user info endpoint
+        // For now, return mock user info
+        OAuth2UserInfo userInfo = new OAuth2UserInfo();
+        userInfo.setId("mock_provider_user_id");
+        userInfo.setEmail("user@example.com");
+        userInfo.setName("Mock User");
+        userInfo.setProvider(provider);
+        return userInfo;
+    }
+
+    private UserCredentials findOrCreateUser(OAuth2UserInfo userInfo, String provider) {
+        // Try to find existing user by email
+        Optional<UserCredentials> existingUser = userCredentialsRepository.findByEmail(userInfo.getEmail());
+        
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+        
+        // Create new user
+        UserCredentials newUser = new UserCredentials();
+        newUser.setUserId(UUID.randomUUID());
+        newUser.setUsername(generateUsernameFromEmail(userInfo.getEmail()));
+        newUser.setEmail(userInfo.getEmail());
+        newUser.setEmailVerified(true); // OAuth providers verify emails
+        newUser.setTenantId(UUID.randomUUID()); // Default tenant
+        newUser.setPasswordHash(""); // No password for OAuth-only users
+        
+        return userCredentialsRepository.save(newUser);
+    }
+
+    private String generateUsernameFromEmail(String email) {
+        String username = email.substring(0, email.indexOf('@'));
+        
+        // Check if username exists and append number if needed
+        int counter = 1;
+        String originalUsername = username;
+        while (userCredentialsRepository.findByUsername(username).isPresent()) {
+            username = originalUsername + counter++;
+        }
+        
+        return username;
+    }
+
+    private void storeTokenMapping(UUID userId, String provider, OAuth2TokenResponse tokenResponse, String ourAccessToken) {
+        // Store mapping between our tokens and provider tokens
+        // This would typically be stored in a separate table
+        logger.debug("Storing token mapping for user {} and provider {}", userId, provider);
+    }
+
+    private UUID getCurrentUserId() {
+        // Extract current user ID from security context
+        // This would typically use Spring Security's SecurityContextHolder
+        return null; // Placeholder
+    }
+
+    private void revokeProviderTokens(String provider, String accessToken) {
+        // Make HTTP call to provider's token revocation endpoint
+        logger.debug("Revoking tokens for provider: {}", provider);
     }
 }

@@ -46,6 +46,7 @@ public class PasswordService {
     private final SecurityAuditService securityAuditService;
     private final TokenManagementService tokenManagementService;
     private final PasswordBreachService passwordBreachService;
+    private final EmailService emailService;
 
     // Password policy configuration
     @Value("${app.security.password.min-length:8}")
@@ -90,6 +91,9 @@ public class PasswordService {
     @Value("${app.security.password.expiry-warning-days:7}")
     private int expiryWarningDays;
 
+    @Value("${app.frontend.base-url:http://localhost:3000}")
+    private String passwordResetBaseUrl;
+
     private static final String ALLOWED_SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?";
     private static final Pattern UPPERCASE_PATTERN = Pattern.compile("[A-Z]");
     private static final Pattern LOWERCASE_PATTERN = Pattern.compile("[a-z]");
@@ -109,7 +113,8 @@ public class PasswordService {
                           PasswordResetTokenRepository passwordResetTokenRepository,
                           SecurityAuditService securityAuditService,
                           TokenManagementService tokenManagementService,
-                          PasswordBreachService passwordBreachService) {
+                          PasswordBreachService passwordBreachService,
+                          EmailService emailService) {
         this.passwordEncoder = passwordEncoder;
         this.secureRandom = new SecureRandom();
         this.userCredentialsRepository = userCredentialsRepository;
@@ -118,6 +123,7 @@ public class PasswordService {
         this.securityAuditService = securityAuditService;
         this.tokenManagementService = tokenManagementService;
         this.passwordBreachService = passwordBreachService;
+        this.emailService = emailService;
     }
 
     /**
@@ -176,7 +182,8 @@ public class PasswordService {
         // Log security event
         securityAuditService.logPasswordResetRequest(user.getUserId(), clientIp, userAgent);
 
-        // TODO: Send password reset email (integrate with email service)
+        // Send password reset email
+        sendPasswordResetEmail(user.getEmail(), resetToken);
         logger.info("Password reset token generated for user: {}", user.getUserId());
 
         return Map.of(
@@ -588,6 +595,41 @@ public class PasswordService {
         if (password.matches(".*([a-zA-Z])\\1{2,}.*")) {
             result.addSuggestion("Avoid repeating the same character multiple times");
         }
+    }
+
+    private void sendPasswordResetEmail(String email, String token) {
+        try {
+            // Create password reset URL
+            String resetUrl = buildPasswordResetUrl(token);
+            
+            // Prepare email context
+            Map<String, Object> emailContext = Map.of(
+                "email", email,
+                "resetUrl", resetUrl,
+                "token", token,
+                "expiryHours", resetTokenExpiryHours
+            );
+            
+            // Send email using email service
+            emailService.sendTemplatedEmail(
+                email, 
+                "Password Reset Request", 
+                "password-reset", 
+                emailContext
+            );
+            
+            logger.debug("Password reset email sent to: {}", email);
+            
+        } catch (Exception e) {
+            logger.error("Failed to send password reset email to: " + email, e);
+            // Don't throw exception to avoid breaking the token generation
+        }
+    }
+
+    private String buildPasswordResetUrl(String token) {
+        // Build password reset URL based on configuration
+        String baseUrl = passwordResetBaseUrl != null ? passwordResetBaseUrl : "http://localhost:3000";
+        return baseUrl + "/reset-password?token=" + token;
     }
 
     private String getClientIpAddress(HttpServletRequest request) {

@@ -1,71 +1,84 @@
 package com.crm.platform.auth.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
- * DTO for password validation results
+ * Result of password validation
  */
 public class PasswordValidationResult {
-    
-    @JsonProperty("is_valid")
-    private boolean isValid;
-    
-    @JsonProperty("strength_score")
-    private int strengthScore; // 0-100
-    
-    @JsonProperty("strength_level")
-    private StrengthLevel strengthLevel;
-    
-    @JsonProperty("validation_errors")
-    private List<String> validationErrors;
-    
-    @JsonProperty("suggestions")
+
+    private boolean valid;
+    private List<String> errors;
     private List<String> suggestions;
-    
-    @JsonProperty("is_compromised")
-    private boolean isCompromised;
+    private StrengthLevel strengthLevel;
+    private int score;
 
     public PasswordValidationResult() {
-        this.validationErrors = new ArrayList<>();
+        this.errors = new ArrayList<>();
         this.suggestions = new ArrayList<>();
+        this.valid = true;
+        this.score = 0;
+        this.strengthLevel = StrengthLevel.VERY_WEAK;
     }
 
-    public PasswordValidationResult(boolean isValid, int strengthScore, StrengthLevel strengthLevel) {
+    public PasswordValidationResult(boolean valid) {
         this();
-        this.isValid = isValid;
-        this.strengthScore = strengthScore;
-        this.strengthLevel = strengthLevel;
+        this.valid = valid;
     }
 
     // Getters and Setters
-    public boolean isValid() { return isValid; }
-    public void setValid(boolean valid) { isValid = valid; }
+    public boolean isValid() { return valid; }
+    public void setValid(boolean valid) { this.valid = valid; }
 
-    public int getStrengthScore() { return strengthScore; }
-    public void setStrengthScore(int strengthScore) { this.strengthScore = strengthScore; }
-
-    public StrengthLevel getStrengthLevel() { return strengthLevel; }
-    public void setStrengthLevel(StrengthLevel strengthLevel) { this.strengthLevel = strengthLevel; }
-
-    public List<String> getValidationErrors() { return validationErrors; }
-    public void setValidationErrors(List<String> validationErrors) { this.validationErrors = validationErrors; }
+    public List<String> getErrors() { return errors; }
+    public void setErrors(List<String> errors) { this.errors = errors; }
 
     public List<String> getSuggestions() { return suggestions; }
     public void setSuggestions(List<String> suggestions) { this.suggestions = suggestions; }
 
-    public boolean isCompromised() { return isCompromised; }
-    public void setCompromised(boolean compromised) { isCompromised = compromised; }
+    public StrengthLevel getStrengthLevel() { return strengthLevel; }
+    public void setStrengthLevel(StrengthLevel strengthLevel) { this.strengthLevel = strengthLevel; }
+
+    public int getScore() { return score; }
+    public void setScore(int score) { this.score = score; }
 
     // Helper methods
-    public void addValidationError(String error) {
-        this.validationErrors.add(error);
-        this.isValid = false;
+    public void addError(String error) {
+        this.errors.add(error);
+        this.valid = false;
     }
 
     public void addSuggestion(String suggestion) {
         this.suggestions.add(suggestion);
+    }
+
+    public void addValidationError(String error) {
+        addError(error);
+    }
+
+    public List<String> getValidationErrors() {
+        return getErrors();
+    }
+
+    public void setCompromised(boolean compromised) {
+        if (compromised) {
+            addError("Password has been compromised in a data breach");
+        }
+    }
+
+    public void setStrengthScore(int score) {
+        this.score = score;
+        this.strengthLevel = calculateStrengthLevel(score);
+    }
+
+    private StrengthLevel calculateStrengthLevel(int score) {
+        if (score < 20) return StrengthLevel.VERY_WEAK;
+        if (score < 40) return StrengthLevel.WEAK;
+        if (score < 60) return StrengthLevel.FAIR;
+        if (score < 80) return StrengthLevel.GOOD;
+        if (score < 95) return StrengthLevel.STRONG;
+        return StrengthLevel.VERY_STRONG;
     }
 
     public enum StrengthLevel {

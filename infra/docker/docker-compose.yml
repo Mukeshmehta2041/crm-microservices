@@ -307,6 +307,48 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Notification Service
+  notification-service:
+    build:
+      context: ../../
+      dockerfile: services/notification-service/Dockerfile
+    container_name: crm-notification-service
+    ports:
+      - "8093:8093"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/notification_db
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PASSWORD=redis_password
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka
+      - JAVA_OPTS=-Xms512m -Xmx1024m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8093/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - crm-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Business Services
   contacts-service:
     build:

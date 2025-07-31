@@ -1,0 +1,262 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: notification-service
+  
+  profiles:
+    active: dev
+  
+  datasource:
+    url: jdbc:h2:mem:notification_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: false
+
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: >
+          userActivity:com.crm.platform.notification.dto.UserActivityEvent,
+          contactEvent:com.crm.platform.notification.dto.ContactEvent,
+          dealEvent:com.crm.platform.notification.dto.DealEvent,
+          authEvent:com.crm.platform.notification.dto.AuthEvent,
+          systemAlert:com.crm.platform.notification.dto.SystemAlertEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5433/crm_platform
+    username: crm_user
+    password: crm_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  datasource:
+    url: jdbc:postgresql://postgres:5432/notification_db
+    username: crm_user
+    password: crm_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        use_sql_comments: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  
+  redis:
+    host: redis
+    port: 6379
+    password: redis_password
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 2
+  
+  kafka:
+    bootstrap-servers: kafka:29092
+
+# Application specific configuration
+app:
+  notification:
+    retry:
+      max-attempts: 3
+      initial-delay: 1000
+      multiplier: 2.0
+      max-delay: 30000
+    
+    channels:
+      email:
+        enabled: true
+        provider: sendgrid
+        from-address: noreply@crm-platform.com
+        from-name: CRM Platform
+      sms:
+        enabled: true
+        provider: twilio
+        from-number: "+1234567890"
+      push:
+        enabled: true
+        provider: fcm
+      websocket:
+        enabled: true
+        endpoint: /ws/notifications
+    
+    templates:
+      default-language: en
+      cache-enabled: true
+      cache-ttl: 3600
+    
+    preferences:
+      default-email-enabled: true
+      default-sms-enabled: false
+      default-push-enabled: true
+      default-in-app-enabled: true
+      default-frequency: IMMEDIATE
+    
+    history:
+      retention-days: 90
+      cleanup-enabled: true
+      cleanup-schedule: "0 0 2 * * ?"
+
+# External service configuration
+external:
+  sendgrid:
+    api-key: ${SENDGRID_API_KEY:}
+    enabled: ${SENDGRID_ENABLED:false}
+  
+  twilio:
+    account-sid: ${TWILIO_ACCOUNT_SID:}
+    auth-token: ${TWILIO_AUTH_TOKEN:}
+    enabled: ${TWILIO_ENABLED:false}
+  
+  firebase:
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+    enabled: ${FIREBASE_ENABLED:false}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.crm.platform.notification: INFO
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/notification-service-${spring.profiles.active}.log

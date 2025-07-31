@@ -120,4 +120,5 @@ public class SecurityAuditLog {
     public static final String EVENT_TOKEN_REFRESH = "TOKEN_REFRESH";
     public static final String EVENT_SESSION_EXPIRED = "SESSION_EXPIRED";
     public static final String EVENT_BRUTE_FORCE_ATTEMPT = "BRUTE_FORCE_ATTEMPT";
+    public static final String EVENT_USER_REGISTRATION = "USER_REGISTRATION";
 }

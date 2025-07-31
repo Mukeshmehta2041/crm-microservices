@@ -49,6 +49,7 @@ public class EmailVerificationResponse {
     }
 
     // Getters and Setters
+    public UUID getId() { return verificationId; }
     public UUID getVerificationId() { return verificationId; }
     public void setVerificationId(UUID verificationId) { this.verificationId = verificationId; }
 

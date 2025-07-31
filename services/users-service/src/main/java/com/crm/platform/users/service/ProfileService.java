@@ -464,28 +464,28 @@ public class ProfileService {
         // Validate privacy values
         Set<String> validValues = Set.of("PUBLIC", "TEAM", "PRIVATE");
 
-        updateIfPresent(privacySettings, "profile", value -> {
+        updateIfPresent((Map<String, Object>) (Map<?, ?>) privacySettings, "profile", value -> {
             if (!validValues.contains(value)) {
                 throw new IllegalArgumentException("Invalid profile visibility: " + value);
             }
             user.setProfileVisibility((String) value);
         });
 
-        updateIfPresent(privacySettings, "activity", value -> {
+        updateIfPresent((Map<String, Object>) (Map<?, ?>) privacySettings, "activity", value -> {
             if (!validValues.contains(value)) {
                 throw new IllegalArgumentException("Invalid activity visibility: " + value);
             }
             user.setActivityVisibility((String) value);
         });
 
-        updateIfPresent(privacySettings, "email", value -> {
+        updateIfPresent((Map<String, Object>) (Map<?, ?>) privacySettings, "email", value -> {
             if (!validValues.contains(value)) {
                 throw new IllegalArgumentException("Invalid email visibility: " + value);
             }
             user.setEmailVisibility((String) value);
         });
 
-        updateIfPresent(privacySettings, "phone", value -> {
+        updateIfPresent((Map<String, Object>) (Map<?, ?>) privacySettings, "phone", value -> {
             if (!validValues.contains(value)) {
                 throw new IllegalArgumentException("Invalid phone visibility: " + value);
             }

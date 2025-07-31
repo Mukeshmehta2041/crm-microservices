@@ -3,6 +3,7 @@ package com.crm.platform.auth.service;
 import com.crm.platform.auth.client.UserServiceClient;
 import com.crm.platform.auth.dto.*;
 import java.util.Map;
+import com.crm.platform.auth.entity.EmailVerificationToken;
 import com.crm.platform.auth.entity.SecurityAuditLog;
 import com.crm.platform.auth.entity.UserCredentials;
 import com.crm.platform.auth.entity.UserSession;
@@ -12,6 +13,8 @@ import com.crm.platform.auth.exception.InvalidCredentialsException;
 import com.crm.platform.auth.exception.InvalidTokenException;
 import com.crm.platform.auth.repository.UserCredentialsRepository;
 import com.crm.platform.auth.repository.UserSessionRepository;
+import com.crm.platform.common.exception.BusinessException;
+import com.crm.platform.common.exception.ValidationException;
 import com.crm.platform.security.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -44,6 +47,7 @@ public class AuthenticationService {
     private final MfaService mfaService;
     private final DeviceTrustService deviceTrustService;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordService passwordService;
 
     @Value("${auth.max-failed-attempts:5}")
     private int maxFailedAttempts;
@@ -67,7 +71,8 @@ public class AuthenticationService {
                                UserServiceClient userServiceClient,
                                MfaService mfaService,
                                DeviceTrustService deviceTrustService,
-                               EmailVerificationService emailVerificationService) {
+                               EmailVerificationService emailVerificationService,
+                               PasswordService passwordService) {
         this.userCredentialsRepository = userCredentialsRepository;
         this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
@@ -78,6 +83,7 @@ public class AuthenticationService {
         this.mfaService = mfaService;
         this.deviceTrustService = deviceTrustService;
         this.emailVerificationService = emailVerificationService;
+        this.passwordService = passwordService;
     }
 
     public LoginResponse authenticate(LoginRequest request, HttpServletRequest httpRequest) {
@@ -252,15 +258,88 @@ public class AuthenticationService {
     }
 
     public RegistrationResponse register(RegistrationRequest request, HttpServletRequest httpRequest) {
-        // TODO: Implement user registration
-        return new RegistrationResponse(
-            UUID.randomUUID(), 
-            request.getEmail(), 
-            true, 
-            true, 
-            UUID.randomUUID(), 
-            Instant.now()
-        );
+        String clientIp = getClientIpAddress(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        logger.info("User registration requested for email: {}", request.getEmail());
+
+        // Check if user already exists
+        Optional<UserCredentials> existingUser = userCredentialsRepository.findByEmail(request.getEmail());
+        if (existingUser.isPresent()) {
+            throw new ValidationException("Email address is already registered");
+        }
+
+        // Check if username is taken
+        Optional<UserCredentials> existingUsername = userCredentialsRepository.findByUsername(request.getUsername());
+        if (existingUsername.isPresent()) {
+            throw new ValidationException("Username is already taken");
+        }
+
+        // Validate password strength
+        PasswordValidationResult passwordValidation = passwordService.validatePassword(request.getPassword(), null);
+        if (!passwordValidation.isValid()) {
+            throw new ValidationException("Password does not meet security requirements: " + 
+                String.join(", ", passwordValidation.getErrors()));
+        }
+
+        try {
+            // Create user in User Management Service first
+            CreateUserRequest createUserRequest = new CreateUserRequest();
+            createUserRequest.setEmail(request.getEmail());
+            createUserRequest.setFirstName(request.getFirstName());
+            createUserRequest.setLastName(request.getLastName());
+            createUserRequest.setPhoneNumber(request.getPhoneNumber());
+            createUserRequest.setTenantId(request.getTenantId());
+            
+            UserInfo createdUser = userServiceClient.createUser(createUserRequest);
+            
+            if (createdUser == null || createdUser.getId() == null) {
+                throw new RuntimeException("Failed to create user in user management service");
+            }
+            
+            // Create user credentials
+            String hashedPassword = passwordEncoder.encode(request.getPassword());
+            UserCredentials credentials = new UserCredentials(
+                createdUser.getId(),
+                request.getUsername(),
+                request.getEmail(),
+                hashedPassword,
+                request.getTenantId()
+            );
+            
+            userCredentialsRepository.save(credentials);
+
+            // Generate email verification token
+            EmailVerificationResponse verificationResponse = emailVerificationService.generateVerificationToken(
+                createdUser.getId(),
+                request.getEmail(),
+                EmailVerificationToken.VerificationType.REGISTRATION,
+                httpRequest
+            );
+
+            // Log successful registration
+            auditService.logSecurityEvent(createdUser.getId(), request.getTenantId(),
+                SecurityAuditLog.EVENT_USER_REGISTRATION, "User registered successfully",
+                SecurityAuditLog.AuditEventStatus.SUCCESS, clientIp, userAgent, null);
+
+            logger.info("User registration completed for user: {}", createdUser.getId());
+
+            return new RegistrationResponse(
+                createdUser.getId(),
+                request.getEmail(),
+                true,
+                false, // Email not verified yet
+                verificationResponse.getId(),
+                Instant.now()
+            );
+
+        } catch (Exception e) {
+            logger.error("Error during user registration", e);
+            auditService.logSecurityEvent(null, request.getTenantId(),
+                SecurityAuditLog.EVENT_USER_REGISTRATION, "User registration failed: " + e.getMessage(),
+                SecurityAuditLog.AuditEventStatus.FAILURE, clientIp, userAgent, null);
+            throw new BusinessException("Registration failed: " + e.getMessage());
+        }
     }
 
     public Map<String, Object> verifyEmail(EmailVerificationRequest request, HttpServletRequest httpRequest) {

@@ -24,7 +24,7 @@ services:
       - POSTGRES_USER=crm_user
       - POSTGRES_PASSWORD=crm_password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./config/postgres/init:/docker-entrypoint-initdb.d
@@ -44,6 +44,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Kafka for event streaming
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   users-service:
     build:
@@ -133,5 +167,41 @@ services:
       retries: 3
       start_period: 40s
 
+  notification-service:
+    build:
+      context: ../../  # Path to project root (adjust as needed)
+      dockerfile: services/notification-service/Dockerfile
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - EUREKA_INSTANCE_HOSTNAME=localhost
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://discovery-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crm_platform
+      - SPRING_DATASOURCE_USERNAME=crm_user
+      - SPRING_DATASOURCE_PASSWORD=crm_password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    ports:
+      - "8093:8093"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8093/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   postgres_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_logs:

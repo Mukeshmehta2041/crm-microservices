@@ -81,6 +81,27 @@ public class SecurityAuditService {
     }
 
     @Async
+    public void logOAuth2Login(UUID userId, String provider, String email) {
+        logSecurityEvent(userId, null, "OAUTH2_LOGIN", 
+            "OAuth2 login via " + provider + " for email: " + email,
+            SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
+    public void logOAuth2AccountLink(UUID userId, String provider, String email) {
+        logSecurityEvent(userId, null, "OAUTH2_ACCOUNT_LINKED", 
+            "OAuth2 account linked: " + provider + " (" + email + ")",
+            SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
+    public void logOAuth2AccountUnlink(UUID userId, String provider, String email) {
+        logSecurityEvent(userId, null, "OAUTH2_ACCOUNT_UNLINKED", 
+            "OAuth2 account unlinked: " + provider + " (" + email + ")",
+            SecurityAuditLog.AuditEventStatus.SUCCESS, null, null, null);
+    }
+
+    @Async
     public void logTokenGeneration(UUID userId, String clientId, String grantType) {
         logSecurityEvent(userId, null, "OAUTH2_TOKEN_GENERATED", 
                         "OAuth2 token generated for client: " + clientId + ", grant type: " + grantType,
@@ -589,4 +610,6 @@ public class SecurityAuditService {
         // This would require GeoIP integration
         logger.debug("Checking for geographic anomalies since {}", since);
     }
+
+
 }

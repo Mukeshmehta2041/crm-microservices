@@ -36,6 +36,7 @@ public class EmailVerificationService {
     private final UserCredentialsRepository userCredentialsRepository;
     private final SecurityAuditService securityAuditService;
     private final RateLimitingService rateLimitingService;
+    private final EmailService emailService;
     private final SecureRandom secureRandom;
 
     // Configuration properties
@@ -54,15 +55,20 @@ public class EmailVerificationService {
     @Value("${app.security.email-verification.cleanup-days:7}")
     private int cleanupDays;
 
+    @Value("${app.frontend.base-url:http://localhost:3000}")
+    private String verificationBaseUrl;
+
     @Autowired
     public EmailVerificationService(EmailVerificationTokenRepository emailVerificationTokenRepository,
                                   UserCredentialsRepository userCredentialsRepository,
                                   SecurityAuditService securityAuditService,
-                                  RateLimitingService rateLimitingService) {
+                                  RateLimitingService rateLimitingService,
+                                  EmailService emailService) {
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.userCredentialsRepository = userCredentialsRepository;
         this.securityAuditService = securityAuditService;
         this.rateLimitingService = rateLimitingService;
+        this.emailService = emailService;
         this.secureRandom = new SecureRandom();
     }
 
@@ -98,7 +104,8 @@ public class EmailVerificationService {
         // Log security event
         securityAuditService.logEmailVerificationTokenGenerated(userId, email, verificationType.name(), clientIp, userAgent);
 
-        // TODO: Send verification email (integrate with email service)
+        // Send verification email
+        sendVerificationEmail(email, verificationToken, verificationType);
         logger.info("Email verification token generated: {} for user: {}", token.getId(), userId);
 
         return new EmailVerificationResponse(
@@ -379,6 +386,59 @@ public class EmailVerificationService {
                 emailVerificationTokenRepository.save(token);
             }
         }
+    }
+
+    private void sendVerificationEmail(String email, String token, EmailVerificationToken.VerificationType type) {
+        try {
+            String subject;
+            String templateName;
+            
+            switch (type) {
+                case REGISTRATION:
+                    subject = "Verify your email address";
+                    templateName = "email-verification";
+                    break;
+                case EMAIL_CHANGE:
+                    subject = "Confirm your new email address";
+                    templateName = "email-change-verification";
+                    break;
+                case PASSWORD_RESET_VERIFICATION:
+                    subject = "Verify password reset request";
+                    templateName = "password-reset-verification";
+                    break;
+                default:
+                    subject = "Email verification required";
+                    templateName = "email-verification";
+            }
+            
+            // Create verification URL
+            String verificationUrl = buildVerificationUrl(token);
+            
+            // Prepare email context
+            Map<String, Object> emailContext = Map.of(
+                "email", email,
+                "verificationUrl", verificationUrl,
+                "token", token,
+                "expiryHours", tokenExpiryHours,
+                "verificationType", type.name()
+            );
+            
+            // Send email using email service
+            emailService.sendTemplatedEmail(email, subject, templateName, emailContext);
+            
+            logger.debug("Verification email sent to: {} with template: {}", email, templateName);
+            
+        } catch (Exception e) {
+            logger.error("Failed to send verification email to: " + email, e);
+            // Don't throw exception to avoid breaking the verification token generation
+            // The token is still valid and can be used if the user gets the email through other means
+        }
+    }
+
+    private String buildVerificationUrl(String token) {
+        // Build verification URL based on configuration
+        String baseUrl = verificationBaseUrl != null ? verificationBaseUrl : "http://localhost:3000";
+        return baseUrl + "/verify-email?token=" + token;
     }
 
     private String getClientIpAddress(HttpServletRequest request) {

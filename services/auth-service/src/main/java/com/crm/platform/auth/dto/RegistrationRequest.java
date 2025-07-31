@@ -2,43 +2,59 @@ package com.crm.platform.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.UUID;
 
+/**
+ * Request DTO for user registration
+ */
 public class RegistrationRequest {
-    
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
-    private String email;
-    
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
-    private String password;
-    
-    @JsonProperty("first_name")
-    private String firstName;
-    
-    @JsonProperty("last_name")
-    private String lastName;
-    
-    private String company;
-    
-    @JsonProperty("tenant_id")
-    private UUID tenantId;
-    
-    @JsonProperty("invitation_token")
-    private String invitationToken;
-    
-    @JsonProperty("terms_accepted")
-    private boolean termsAccepted;
-    
-    @JsonProperty("privacy_policy_accepted")
-    private boolean privacyPolicyAccepted;
 
+    @NotBlank
+    @Size(min = 3, max = 100)
+    private String username;
+
+    @NotBlank
+    @Email
+    @Size(max = 255)
+    private String email;
+
+    @NotBlank
+    @Size(min = 8, max = 128)
+    private String password;
+
+    @Size(max = 100)
+    private String firstName;
+
+    @Size(max = 100)
+    private String lastName;
+
+    @Size(max = 20)
+    private String phoneNumber;
+
+    @NotNull
+    private UUID tenantId;
+
+    // Constructors
     public RegistrationRequest() {}
 
+    public RegistrationRequest(String username, String email, String password, String firstName, 
+                             String lastName, String phoneNumber, UUID tenantId) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.phoneNumber = phoneNumber;
+        this.tenantId = tenantId;
+    }
+
     // Getters and Setters
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
@@ -51,18 +67,9 @@ public class RegistrationRequest {
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public String getCompany() { return company; }
-    public void setCompany(String company) { this.company = company; }
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
     public UUID getTenantId() { return tenantId; }
     public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
-
-    public String getInvitationToken() { return invitationToken; }
-    public void setInvitationToken(String invitationToken) { this.invitationToken = invitationToken; }
-
-    public boolean isTermsAccepted() { return termsAccepted; }
-    public void setTermsAccepted(boolean termsAccepted) { this.termsAccepted = termsAccepted; }
-
-    public boolean isPrivacyPolicyAccepted() { return privacyPolicyAccepted; }
-    public void setPrivacyPolicyAccepted(boolean privacyPolicyAccepted) { this.privacyPolicyAccepted = privacyPolicyAccepted; }
 }
