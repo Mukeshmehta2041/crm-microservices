@@ -27,12 +27,11 @@ services:
     container_name: crm-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --requirepass redis_password
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
-      # Authenticated ping; expects "PONG"
-      test: ["CMD-SHELL", "redis-cli -a redis_password ping | grep PONG"]
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 10s
       timeout: 3s
       retries: 5
