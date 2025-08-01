@@ -6,8 +6,8 @@ server:
 eureka:
   instance:
     hostname: ${EUREKA_INSTANCE_HOSTNAME:discovery-server}
-    prefer-ip-address: true
-    ip-address: ${EUREKA_INSTANCE_IP}
+    prefer-ip-address: false
+    ip-address: ${EUREKA_INSTANCE_IP:discovery-server}
     non-secure-port: 8761
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90

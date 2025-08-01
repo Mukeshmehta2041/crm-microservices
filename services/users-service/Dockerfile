@@ -1,24 +1,4 @@
-# Multi-stage Dockerfile for Users Service
-# Stage 1: Build stage
-FROM amazoncorretto:17-alpine as builder
-
-# Install Maven
-RUN apk add --no-cache maven
-
-WORKDIR /app
-
-# Copy parent POM and shared modules first for better caching
-COPY pom.xml .
-COPY shared/ shared/
-
-# Copy service-specific files
-COPY services/users-service/pom.xml services/users-service/
-COPY services/users-service/src services/users-service/src
-
-# Build the application
-RUN mvn clean package -pl services/users-service -am -DskipTests
-
-# Stage 2: Runtime stage
+# Single-stage Dockerfile for Users Service using pre-built JAR
 FROM amazoncorretto:17-alpine
 
 # Create non-root user for security
@@ -29,8 +9,8 @@ RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Copy the built JAR from builder stage
-COPY --from=builder /app/services/users-service/target/*.jar app.jar
+# Copy the pre-built JAR file
+COPY services/users-service/target/*.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R crm:crm /app
