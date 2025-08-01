@@ -5,7 +5,7 @@ services:
     image: postgres:15-alpine
     container_name: crm-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: crm_platform
       POSTGRES_USER: crm_user
@@ -82,7 +82,7 @@ services:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crm_platform
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5433/crm_platform
       - SPRING_DATASOURCE_USERNAME=crm_user
       - SPRING_DATASOURCE_PASSWORD=crm_password
       - SPRING_CACHE_REDIS_HOST=redis
@@ -118,7 +118,7 @@ services:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crm_platform
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5433/crm_platform
       - SPRING_DATASOURCE_USERNAME=crm_user
       - SPRING_DATASOURCE_PASSWORD=crm_password
       - SPRING_REDIS_HOST=redis

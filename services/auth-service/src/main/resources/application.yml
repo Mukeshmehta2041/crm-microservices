@@ -44,7 +44,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         use_sql_comments: true
         jdbc:
@@ -58,7 +58,7 @@ spring:
   redis:
     host: localhost
     port: 6379
-    password: 
+    password: redis_password
     timeout: 2000ms
     lettuce:
       pool:
