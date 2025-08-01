@@ -1,9 +1,9 @@
 # Multi-stage Dockerfile for Users Service
 # Stage 1: Build stage
-FROM openjdk:17-jdk-slim as builder
+FROM amazoncorretto:17-alpine as builder
 
 # Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache maven
 
 WORKDIR /app
 
@@ -19,13 +19,13 @@ COPY services/users-service/src services/users-service/src
 RUN mvn clean package -pl services/users-service -am -DskipTests
 
 # Stage 2: Runtime stage
-FROM openjdk:17-jre-slim
+FROM amazoncorretto:17-alpine
 
 # Create non-root user for security
-RUN groupadd -r crm && useradd -r -g crm crm
+RUN addgroup -S crm && adduser -S crm -G crm
 
 # Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
@@ -37,11 +37,11 @@ RUN chown -R crm:crm /app
 USER crm
 
 # Expose port
-EXPOSE 8083
+EXPOSE 8082
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8083/actuator/health || exit 1
+    CMD curl -f http://localhost:8082/actuator/health || exit 1
 
 # JVM optimization for containers
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,16 +29,24 @@ public class UserServiceClient {
         this.userServiceUrl = userServiceUrl;
     }
 
+    @SuppressWarnings("unchecked")
     public UserInfo getUserById(UUID userId) {
         try {
             logger.debug("Fetching user info for ID: {}", userId);
             
             String url = userServiceUrl + "/api/v1/users/" + userId;
-            ResponseEntity<UserServiceResponse> response = restTemplate.getForEntity(url, UserServiceResponse.class);
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                UserServiceResponse userResponse = response.getBody();
-                return mapToUserInfo(userResponse);
+                Map<String, Object> apiResponse = response.getBody();
+                Boolean success = (Boolean) apiResponse.get("success");
+                
+                if (Boolean.TRUE.equals(success)) {
+                    Map<String, Object> userData = (Map<String, Object>) apiResponse.get("data");
+                    if (userData != null) {
+                        return mapFromUserData(userData);
+                    }
+                }
             }
             
             logger.warn("User not found with ID: {}", userId);
@@ -95,16 +104,24 @@ public class UserServiceClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public UserInfo getUserByEmail(String email) {
         try {
             logger.debug("Fetching user info for email: {}", email);
             
             String url = userServiceUrl + "/api/v1/users/email/" + email;
-            ResponseEntity<UserServiceResponse> response = restTemplate.getForEntity(url, UserServiceResponse.class);
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                UserServiceResponse userResponse = response.getBody();
-                return mapToUserInfo(userResponse);
+                Map<String, Object> apiResponse = response.getBody();
+                Boolean success = (Boolean) apiResponse.get("success");
+                
+                if (Boolean.TRUE.equals(success)) {
+                    Map<String, Object> userData = (Map<String, Object>) apiResponse.get("data");
+                    if (userData != null) {
+                        return mapFromUserData(userData);
+                    }
+                }
             }
             
             logger.warn("User not found with email: {}", email);
@@ -116,10 +133,42 @@ public class UserServiceClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private UserInfo mapFromUserData(Map<String, Object> userData) {
+        try {
+            UUID id = UUID.fromString((String) userData.get("id"));
+            String email = (String) userData.get("email");
+            String firstName = (String) userData.get("firstName");
+            String lastName = (String) userData.get("lastName");
+            String phoneNumber = (String) userData.get("phoneNumber");
+            String jobTitle = (String) userData.get("jobTitle");
+            String department = (String) userData.get("department");
+            String profileImageUrl = (String) userData.get("profileImageUrl");
+            UUID tenantId = UUID.fromString((String) userData.get("tenantId"));
+            
+            // Handle roles - they might be a list of strings or objects
+            Set<String> roleStrings = Set.of();
+            Object rolesObj = userData.get("roles");
+            if (rolesObj instanceof java.util.List) {
+                java.util.List<?> rolesList = (java.util.List<?>) rolesObj;
+                roleStrings = rolesList.stream()
+                    .map(Object::toString)
+                    .collect(Collectors.toSet());
+            }
+            
+            return new UserInfo(id, email, firstName, lastName, phoneNumber, 
+                              jobTitle, department, profileImageUrl, roleStrings, tenantId);
+                              
+        } catch (Exception e) {
+            logger.error("Error mapping user data: {}", userData, e);
+            return null;
+        }
+    }
+
     private UserInfo mapToUserInfo(UserServiceResponse userResponse) {
         Set<String> roleStrings = userResponse.getRoles() != null ? 
             userResponse.getRoles().stream()
-                .map(Enum::name)
+                .map(role -> role.name())
                 .collect(Collectors.toSet()) : 
             Set.of();
 
