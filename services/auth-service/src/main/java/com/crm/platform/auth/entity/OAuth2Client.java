@@ -21,7 +21,11 @@ import java.util.UUID;
 public class OAuth2Client {
 
     @Id
-    @Column(name = "client_id", length = 255)
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @NotBlank
+    @Column(name = "client_id", unique = true, nullable = false, length = 255)
     private String clientId;
 
     @NotBlank
@@ -39,20 +43,20 @@ public class OAuth2Client {
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "oauth2_client_redirect_uris", 
-                    joinColumns = @JoinColumn(name = "client_id"))
+                    joinColumns = @JoinColumn(name = "oauth2_client_id"))
     @Column(name = "redirect_uri", length = 500)
     private Set<String> redirectUris;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "oauth2_client_scopes", 
-                    joinColumns = @JoinColumn(name = "client_id"))
+                    joinColumns = @JoinColumn(name = "oauth2_client_id"))
     @Column(name = "scope", length = 100)
     private Set<String> scopes;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "oauth2_client_grant_types", 
-                    joinColumns = @JoinColumn(name = "client_id"))
+                    joinColumns = @JoinColumn(name = "oauth2_client_id"))
     @Column(name = "grant_type", length = 50)
     private Set<GrantType> grantTypes;
 
@@ -91,6 +95,9 @@ public class OAuth2Client {
     }
 
     // Getters and Setters
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
 

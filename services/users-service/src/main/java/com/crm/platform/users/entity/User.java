@@ -27,6 +27,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @Size(max = 100)
+    @Column(length = 100)
+    private String username;
+
     @NotBlank
     @Email
     @Size(max = 255)
@@ -71,10 +75,8 @@ public class User {
     @Column(name = "time_format", length = 10)
     private String timeFormat = "12h";
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @Enumerated(EnumType.STRING)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
+    // User roles are managed through UserRole entity - this is kept for backward compatibility
+    @Transient
     private Set<UserRole> roles;
 
     @Column(name = "manager_id")
@@ -314,6 +316,9 @@ public class User {
     // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

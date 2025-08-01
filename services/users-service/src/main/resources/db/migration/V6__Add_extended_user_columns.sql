@@ -1,3 +1,6 @@
+-- Add username column if missing (some migrations have it, some don't)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(100);
+
 -- Add extended user profile columns
 ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(200);
