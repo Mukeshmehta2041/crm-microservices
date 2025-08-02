@@ -20,7 +20,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     CONSTRAINT valid_status CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED')),
-    CONSTRAINT valid_email CHECK (email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    CONSTRAINT valid_email CHECK (email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),$'),
     CONSTRAINT uk_users_tenant_username UNIQUE (tenant_id, username),
     CONSTRAINT uk_users_tenant_email UNIQUE (tenant_id, email),
     CONSTRAINT fk_users_manager FOREIGN KEY (manager_id) REFERENCES users(id)

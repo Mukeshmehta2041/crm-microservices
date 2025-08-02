@@ -160,7 +160,8 @@ public class AuthController {
             @RequestBody(required = false) LogoutRequest request,
             HttpServletRequest httpRequest) {
         
-        Map<String, Object> result = authenticationService.logout(authorization, request, httpRequest);
+        String tokenId = tokenManagementService.extractTokenIdFromToken(authorization);
+        Map<String, Object> result = authenticationService.logout(tokenId, request, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

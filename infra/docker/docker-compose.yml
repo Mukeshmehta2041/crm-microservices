@@ -41,19 +41,17 @@ services:
 
   discovery-server:
     build:
-      context: ../../
+      context: ../..
       dockerfile: services/discovery-server/Dockerfile
     container_name: crm-discovery-server
     ports:
       - "8761:8761"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_PROFILES_ACTIVE=dev
       - EUREKA_INSTANCE_HOSTNAME=discovery-server
-      - EUREKA_INSTANCE_IP=discovery-server
-      - EUREKA_CLIENT_SERVICE_URL=http://discovery-server:8761/eureka/
-      - JAVA_OPTS=-Xms256m -Xmx512m
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -61,81 +59,9 @@ services:
     restart: unless-stopped
     networks:
       - crm-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  users-service:
-    build:
-      context: ../../
-      dockerfile: services/users-service/Dockerfile
-    container_name: crm-users-service
-    ports:
-      - "8082:8082"
     depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5433/crm_platform
-      - SPRING_DATASOURCE_USERNAME=crm_user
-      - SPRING_DATASOURCE_PASSWORD=crm_password
-      - SPRING_CACHE_REDIS_HOST=redis
-      - SPRING_CACHE_REDIS_PASSWORD=redis_password
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=users-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    restart: unless-stopped
-    networks:
-      - crm-network
-
-  auth-service:
-    build:
-      context: ../../
-      dockerfile: services/auth-service/Dockerfile
-    container_name: crm-auth-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
-      users-service:
-        condition: service_healthy
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5433/crm_platform
-      - SPRING_DATASOURCE_USERNAME=crm_user
-      - SPRING_DATASOURCE_PASSWORD=crm_password
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PASSWORD=redis_password
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=auth-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
-      - SERVICES_USER_SERVICE_URL=http://users-service:8082
-      - JWT_SECRET=ThisIsAReallyLongAndSecureSecretKeyForJWTGenerationThatIsAtLeast256BitsLongAndShouldBeChangedInProduction
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    restart: unless-stopped
-    networks:
-      - crm-network
+      - postgres
+      - redis
 
 volumes:
   postgres_data:

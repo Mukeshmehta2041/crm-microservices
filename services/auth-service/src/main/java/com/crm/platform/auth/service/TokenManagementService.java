@@ -407,4 +407,15 @@ public class TokenManagementService {
         String token = authorizationHeader.substring(7);
         return jwtTokenProvider.getUserIdFromToken(token);
     }
+
+    /**
+     * Extract token ID from authorization header
+     */
+    public String extractTokenIdFromToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new OAuth2Exception("invalid_token", "Bearer token is missing or invalid");
+        }
+        String token = authorizationHeader.substring(7);
+        return jwtTokenProvider.getJtiFromToken(token);
+    }
 }
