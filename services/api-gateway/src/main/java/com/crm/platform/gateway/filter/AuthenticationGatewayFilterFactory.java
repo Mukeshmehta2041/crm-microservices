@@ -1,7 +1,6 @@
 package com.crm.platform.gateway.filter;
 
-import com.crm.platform.security.jwt.JwtTokenProvider;
-import com.crm.platform.security.jwt.InvalidJwtTokenException;
+import com.crm.platform.gateway.security.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -75,8 +74,6 @@ public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFac
                 // Continue with modified request
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
                 
-            } catch (InvalidJwtTokenException e) {
-                return handleUnauthorized(exchange, "Invalid JWT token: " + e.getMessage());
             } catch (Exception e) {
                 return handleUnauthorized(exchange, "Authentication error: " + e.getMessage());
             }
