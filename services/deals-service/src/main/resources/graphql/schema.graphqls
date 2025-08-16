@@ -1,0 +1,258 @@
+scalar UUID
+scalar Date
+scalar DateTime
+scalar BigDecimal
+
+type Query {
+    deal(id: UUID!): Deal
+    deals(filter: DealFilter, sort: SortInput, pagination: PaginationInput): DealConnection
+    dealsByPipeline(pipelineId: UUID!): [Deal!]!
+    dealsByStage(stageId: UUID!): [Deal!]!
+    dealsByOwner(ownerId: UUID!): [Deal!]!
+    dealForecast(startDate: Date!, endDate: Date!, pipelineId: UUID, currency: String): DealForecast
+}
+
+type Mutation {
+    createDeal(input: DealInput!): Deal!
+    updateDeal(id: UUID!, input: DealInput!): Deal!
+    deleteDeal(id: UUID!): Boolean!
+    moveDealToStage(id: UUID!, stageId: UUID!, reason: String): Deal!
+    bulkUpdateDealStage(dealIds: [UUID!]!, stageId: UUID!): [Deal!]!
+    bulkUpdateDealOwner(dealIds: [UUID!]!, ownerId: UUID!): [Deal!]!
+}
+
+type Subscription {
+    dealUpdated(pipelineId: UUID): Deal!
+    dealStageChanged(pipelineId: UUID): DealStageChange!
+    dealCreated(ownerId: UUID): Deal!
+}
+
+type Deal {
+    id: UUID!
+    tenantId: UUID!
+    accountId: UUID
+    contactId: UUID
+    pipelineId: UUID!
+    stageId: UUID!
+    name: String!
+    amount: BigDecimal
+    currency: String
+    probability: BigDecimal
+    weightedAmount: BigDecimal
+    expectedCloseDate: Date
+    actualCloseDate: Date
+    dealType: String
+    leadSource: String
+    nextStep: String
+    description: String
+    isClosed: Boolean!
+    isWon: Boolean!
+    tags: [String!]
+    customFields: JSON
+    ownerId: UUID!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    createdBy: UUID!
+    updatedBy: UUID!
+    
+    # Related entities
+    pipeline: Pipeline
+    stage: PipelineStage
+    stageHistory: [DealStageHistory!]!
+}
+
+type Pipeline {
+    id: UUID!
+    tenantId: UUID!
+    name: String!
+    description: String
+    isActive: Boolean!
+    isDefault: Boolean!
+    displayOrder: Int!
+    stages: [PipelineStage!]!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+}
+
+type PipelineStage {
+    id: UUID!
+    pipelineId: UUID!
+    name: String!
+    description: String
+    defaultProbability: BigDecimal
+    isActive: Boolean!
+    isClosed: Boolean!
+    isWon: Boolean!
+    displayOrder: Int!
+    color: String
+    automationRules: JSON
+    createdAt: DateTime!
+    updatedAt: DateTime!
+}
+
+type DealStageHistory {
+    id: UUID!
+    dealId: UUID!
+    fromStageId: UUID
+    toStageId: UUID!
+    pipelineId: UUID!
+    changedAt: DateTime!
+    changedBy: UUID!
+    reason: String
+    durationInPreviousStageHours: Long
+    
+    # Related entities
+    fromStage: PipelineStage
+    toStage: PipelineStage!
+}
+
+type DealConnection {
+    edges: [DealEdge!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+}
+
+type DealEdge {
+    node: Deal!
+    cursor: String!
+}
+
+type PageInfo {
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+type DealForecast {
+    forecastPeriodStart: Date!
+    forecastPeriodEnd: Date!
+    currency: String!
+    totalPipelineValue: BigDecimal!
+    totalWeightedValue: BigDecimal!
+    totalCommittedValue: BigDecimal!
+    totalBestCaseValue: BigDecimal!
+    totalWorstCaseValue: BigDecimal!
+    totalDealsCount: Int!
+    openDealsCount: Int!
+    closedWonDealsCount: Int!
+    closedLostDealsCount: Int!
+    pipelineForecasts: [PipelineForecast!]!
+    stageForecasts: [StageForecast!]!
+    ownerForecasts: [OwnerForecast!]!
+    timePeriodForecasts: [TimePeriodForecast!]!
+}
+
+type PipelineForecast {
+    pipelineId: UUID!
+    pipelineName: String!
+    totalValue: BigDecimal!
+    weightedValue: BigDecimal!
+    dealsCount: Int!
+    averageDealSize: BigDecimal
+    winRate: BigDecimal
+}
+
+type StageForecast {
+    stageId: UUID!
+    stageName: String!
+    totalValue: BigDecimal!
+    weightedValue: BigDecimal!
+    dealsCount: Int!
+    averageProbability: BigDecimal
+}
+
+type OwnerForecast {
+    ownerId: UUID!
+    ownerName: String
+    totalValue: BigDecimal!
+    weightedValue: BigDecimal!
+    dealsCount: Int!
+    quota: BigDecimal
+    quotaAttainment: BigDecimal
+}
+
+type TimePeriodForecast {
+    periodStart: Date!
+    periodEnd: Date!
+    totalValue: BigDecimal!
+    weightedValue: BigDecimal!
+    dealsCount: Int!
+    expectedClosures: Int!
+}
+
+type DealStageChange {
+    dealId: UUID!
+    fromStageId: UUID
+    toStageId: UUID!
+    changedAt: DateTime!
+    changedBy: UUID!
+    reason: String
+}
+
+input DealInput {
+    name: String!
+    pipelineId: UUID!
+    stageId: UUID!
+    accountId: UUID
+    contactId: UUID
+    amount: BigDecimal
+    currency: String
+    probability: BigDecimal
+    expectedCloseDate: Date
+    dealType: String
+    leadSource: String
+    nextStep: String
+    description: String
+    tags: [String!]
+    customFields: JSON
+    ownerId: UUID!
+}
+
+input DealFilter {
+    name: String
+    pipelineIds: [UUID!]
+    stageIds: [UUID!]
+    ownerIds: [UUID!]
+    accountIds: [UUID!]
+    contactIds: [UUID!]
+    minAmount: BigDecimal
+    maxAmount: BigDecimal
+    currency: String
+    minProbability: BigDecimal
+    maxProbability: BigDecimal
+    expectedCloseDateFrom: Date
+    expectedCloseDateTo: Date
+    actualCloseDateFrom: Date
+    actualCloseDateTo: Date
+    dealType: String
+    leadSource: String
+    isClosed: Boolean
+    isWon: Boolean
+    tags: [String!]
+    customFields: JSON
+    createdAfter: DateTime
+    createdBefore: DateTime
+    updatedAfter: DateTime
+    updatedBefore: DateTime
+}
+
+input SortInput {
+    field: String!
+    direction: SortDirection!
+}
+
+input PaginationInput {
+    first: Int
+    after: String
+    last: Int
+    before: String
+}
+
+enum SortDirection {
+    ASC
+    DESC
+}
+
+scalar JSON
+scalar Long

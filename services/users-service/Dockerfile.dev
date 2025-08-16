@@ -1,0 +1,23 @@
+# Development Dockerfile for Users Service
+FROM openjdk:17-jdk-slim
+
+# Install Maven and curl
+RUN apt-get update && apt-get install -y maven curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Expose port and debug port
+EXPOSE 8083 5008
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8083/actuator/health || exit 1
+
+# Development JVM options with debugging
+ENV JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# Run with Maven for hot reload
+CMD ["sh", "-c", "cd services/users-service && mvn spring-boot:run -Dspring-boot.run.jvmArguments='$JAVA_OPTS'"]

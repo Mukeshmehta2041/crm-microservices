@@ -1,0 +1,407 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: '-Xmx2g -XX:MaxMetaspaceSize=512m'
+
+jobs:
+  # Skip if PR is in draft mode
+  check-draft:
+    name: Check if PR is draft
+    runs-on: ubuntu-latest
+    outputs:
+      is-draft: ${{ steps.check.outputs.is-draft }}
+    steps:
+    - name: Check if PR is draft
+      id: check
+      run: |
+        if [[ "${{ github.event.pull_request.draft }}" == "true" ]]; then
+          echo "is-draft=true" >> $GITHUB_OUTPUT
+        else
+          echo "is-draft=false" >> $GITHUB_OUTPUT
+        fi
+
+  # Validate PR title and description
+  validate-pr:
+    name: Validate PR Format
+    runs-on: ubuntu-latest
+    needs: check-draft
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    steps:
+    - name: Validate PR title
+      uses: amannn/action-semantic-pull-request@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        types: |
+          feat
+          fix
+          docs
+          style
+          refactor
+          perf
+          test
+          build
+          ci
+          chore
+        requireScope: false
+        disallowScopes: |
+          release
+        subjectPattern: ^(?![A-Z]).+$
+        subjectPatternError: |
+          The subject "{subject}" found in the pull request title "{title}"
+          didn't match the configured pattern. Please ensure that the subject
+          doesn't start with an uppercase character.
+
+    - name: Check PR description
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { data: pr } = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          });
+          
+          if (!pr.body || pr.body.trim().length < 10) {
+            core.setFailed('PR description is too short. Please provide a meaningful description.');
+          }
+          
+          // Check for required sections
+          const requiredSections = ['## Description', '## Changes', '## Testing'];
+          const missingSection = requiredSections.find(section => !pr.body.includes(section));
+          
+          if (missingSection) {
+            core.setFailed(`PR description is missing required section: ${missingSection}`);
+          }
+
+  # Code quality and testing
+  quality-check:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    needs: [check-draft, validate-pr]
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crm_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:6-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v40
+      with:
+        files: |
+          **/*.java
+          **/pom.xml
+          **/*.yml
+          **/*.yaml
+          **/*.properties
+
+    - name: Run formatting check on changed files
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: ./mvnw spotless:check
+
+    - name: Compile code
+      run: ./mvnw clean compile -DskipTests
+
+    - name: Run tests for changed modules
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        # Determine affected modules
+        CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
+        AFFECTED_MODULES=""
+        
+        for file in $CHANGED_FILES; do
+          if [[ $file == services/* ]]; then
+            module=$(echo "$file" | cut -d'/' -f1-2)
+            if [[ ! $AFFECTED_MODULES =~ $module ]]; then
+              AFFECTED_MODULES="$AFFECTED_MODULES $module"
+            fi
+          elif [[ $file == shared/* ]]; then
+            module=$(echo "$file" | cut -d'/' -f1-2)
+            if [[ ! $AFFECTED_MODULES =~ $module ]]; then
+              AFFECTED_MODULES="$AFFECTED_MODULES $module"
+            fi
+          fi
+        done
+        
+        if [ -n "$AFFECTED_MODULES" ]; then
+          for module in $AFFECTED_MODULES; do
+            echo "Running tests for $module"
+            (cd "$module" && ../mvnw test)
+          done
+        else
+          echo "Running full test suite"
+          ./mvnw test
+        fi
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: crm_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run quality checks on changed files
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        ./mvnw checkstyle:check
+        ./mvnw pmd:check
+        ./mvnw spotbugs:check
+
+    - name: Generate coverage report
+      run: ./mvnw jacoco:report
+
+    - name: Comment PR with coverage
+      uses: madrapps/jacoco-report@v1.6.1
+      with:
+        paths: |
+          **/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 80
+        min-coverage-changed-files: 80
+        title: Code Coverage Report
+        update-comment: true
+
+  # Build verification
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [check-draft, quality-check]
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build all modules
+      run: ./mvnw clean package -DskipTests
+
+    - name: Verify Docker builds
+      run: |
+        services=("discovery-server" "api-gateway" "auth-service" "tenant-service" "users-service")
+        for service in "${services[@]}"; do
+          if [ -d "services/$service" ]; then
+            echo "Building Docker image for $service..."
+            cd "services/$service"
+            docker build -t "test/$service:pr-${{ github.event.number }}" .
+            cd ../..
+          fi
+        done
+
+  # Security check
+  security-check:
+    name: Security Check
+    runs-on: ubuntu-latest
+    needs: [check-draft, validate-pr]
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Run OWASP Dependency Check
+      run: ./mvnw dependency-check:check
+      continue-on-error: true
+
+    - name: Upload dependency check results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-check-report
+        path: target/dependency-check-report.html
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: java
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  # Performance check
+  performance-check:
+    name: Performance Check
+    runs-on: ubuntu-latest
+    needs: [check-draft, build-check]
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Run performance tests
+      run: |
+        # Add performance test commands here
+        echo "Running performance tests..."
+        # ./mvnw test -Dtest=**/*PerformanceTest
+
+    - name: Check build size
+      run: |
+        echo "Checking build artifact sizes..."
+        find . -name "*.jar" -not -path "*/target/dependency/*" -exec ls -lh {} \;
+        
+        # Check if any JAR is larger than 100MB
+        large_jars=$(find . -name "*.jar" -not -path "*/target/dependency/*" -size +100M)
+        if [ -n "$large_jars" ]; then
+          echo "Warning: Large JAR files found:"
+          echo "$large_jars"
+        fi
+
+  # Documentation check
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    needs: [check-draft, validate-pr]
+    if: needs.check-draft.outputs.is-draft == 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for documentation updates
+      uses: tj-actions/changed-files@v40
+      id: docs-changed
+      with:
+        files: |
+          docs/**
+          README.md
+          **/*.md
+
+    - name: Validate markdown files
+      if: steps.docs-changed.outputs.any_changed == 'true'
+      uses: DavidAnson/markdownlint-action@v1
+      with:
+        files: '**/*.md'
+        ignore: 'node_modules'
+        config: '.markdownlint.json'
+
+    - name: Check for broken links
+      if: steps.docs-changed.outputs.any_changed == 'true'
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.markdown-link-check.json'
+
+  # Final status check
+  pr-status:
+    name: PR Status Check
+    runs-on: ubuntu-latest
+    needs: [quality-check, build-check, security-check, performance-check, docs-check]
+    if: always()
+
+    steps:
+    - name: Check all jobs status
+      run: |
+        if [[ "${{ needs.quality-check.result }}" == "success" && 
+              "${{ needs.build-check.result }}" == "success" && 
+              "${{ needs.security-check.result }}" == "success" && 
+              "${{ needs.performance-check.result }}" == "success" && 
+              "${{ needs.docs-check.result }}" == "success" ]]; then
+          echo "All checks passed! ✅"
+          exit 0
+        else
+          echo "Some checks failed! ❌"
+          echo "Quality Check: ${{ needs.quality-check.result }}"
+          echo "Build Check: ${{ needs.build-check.result }}"
+          echo "Security Check: ${{ needs.security-check.result }}"
+          echo "Performance Check: ${{ needs.performance-check.result }}"
+          echo "Docs Check: ${{ needs.docs-check.result }}"
+          exit 1
+        fi
+
+    - name: Comment PR status
+      uses: actions/github-script@v6
+      if: always()
+      with:
+        script: |
+          const status = '${{ needs.quality-check.result }}' === 'success' &&
+                        '${{ needs.build-check.result }}' === 'success' &&
+                        '${{ needs.security-check.result }}' === 'success' &&
+                        '${{ needs.performance-check.result }}' === 'success' &&
+                        '${{ needs.docs-check.result }}' === 'success' ? '✅' : '❌';
+          
+          const body = `## PR Validation Results ${status}
+          
+          | Check | Status |
+          |-------|--------|
+          | Code Quality | ${{ needs.quality-check.result }} |
+          | Build | ${{ needs.build-check.result }} |
+          | Security | ${{ needs.security-check.result }} |
+          | Performance | ${{ needs.performance-check.result }} |
+          | Documentation | ${{ needs.docs-check.result }} |
+          
+          ${status === '✅' ? 'All checks passed! This PR is ready for review.' : 'Some checks failed. Please review and fix the issues.'}`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });

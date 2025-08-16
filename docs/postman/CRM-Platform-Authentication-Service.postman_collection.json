@@ -1,0 +1,1177 @@
+{
+  "info": {
+    "name": "CRM Platform - Authentication Service",
+    "description": "Comprehensive collection for CRM Platform Authentication Service API endpoints including authentication, MFA, session management, and security features.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set base URL if not already set",
+          "if (!pm.environment.get('auth_base_url')) {",
+          "    pm.environment.set('auth_base_url', 'http://localhost:8081/api/v1/auth');",
+          "}",
+          "",
+          "// Set tenant ID if not already set",
+          "if (!pm.environment.get('tenant_id')) {",
+          "    pm.environment.set('tenant_id', 'default-tenant-uuid');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{auth_base_url}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login - Basic",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has access token', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.access_token).to.exist;",
+                  "    pm.expect(responseJson.data.refresh_token).to.exist;",
+                  "    ",
+                  "    // Store tokens for subsequent requests",
+                  "    pm.environment.set('access_token', responseJson.data.access_token);",
+                  "    pm.environment.set('refresh_token', responseJson.data.refresh_token);",
+                  "    pm.environment.set('user_id', responseJson.data.user.id);",
+                  "});",
+                  "",
+                  "pm.test('User information is present', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.user).to.exist;",
+                  "    pm.expect(responseJson.data.user.email).to.exist;",
+                  "    pm.expect(responseJson.data.user.id).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"rememberMe\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "description": "Basic user login with email and password"
+          }
+        },
+        {
+          "name": "Login - With MFA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 202', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "const responseJson = pm.response.json();",
+                  "",
+                  "if (responseJson.data.mfa_required) {",
+                  "    pm.test('MFA token is provided', function () {",
+                  "        pm.expect(responseJson.data.mfa_token).to.exist;",
+                  "        pm.environment.set('mfa_token', responseJson.data.mfa_token);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Access token is provided', function () {",
+                  "        pm.expect(responseJson.data.access_token).to.exist;",
+                  "        pm.environment.set('access_token', responseJson.data.access_token);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"{{mfa_test_email}}\",\n  \"password\": \"{{mfa_test_password}}\",\n  \"mfaCode\": \"{{mfa_code}}\",\n  \"rememberMe\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "description": "Login with MFA verification code"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('New tokens are provided', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.access_token).to.exist;",
+                  "    pm.expect(responseJson.data.refresh_token).to.exist;",
+                  "    ",
+                  "    // Update stored tokens",
+                  "    pm.environment.set('access_token', responseJson.data.access_token);",
+                  "    pm.environment.set('refresh_token', responseJson.data.refresh_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["refresh"]
+            },
+            "description": "Refresh access token using refresh token"
+          }
+        },
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('User created successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.user_id).to.exist;",
+                  "    pm.expect(responseJson.data.email).to.exist;",
+                  "    ",
+                  "    // Store new user ID for cleanup",
+                  "    pm.environment.set('new_user_id', responseJson.data.user_id);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique email for registration",
+                  "const timestamp = Date.now();",
+                  "const uniqueEmail = `test.user.${timestamp}@example.com`;",
+                  "pm.environment.set('unique_email', uniqueEmail);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{unique_email}}\",\n  \"password\": \"SecurePassword123!\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"phone_number\": \"+1234567890\",\n  \"tenant_id\": \"{{tenant_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            },
+            "description": "Register a new user account"
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Logout successful', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('Logged out');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"all_sessions\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": ["{{base_url}}"],
+              "path": ["logout"]
+            },
+            "description": "Logout current user session"
+          }
+        }
+      ],
+      "description": "Core authentication endpoints"
+    },
+    {
+      "name": "Password Management",
+      "item": [
+        {
+          "name": "Request Password Reset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Reset email sent', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('reset email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/password/reset",
+              "host": ["{{base_url}}"],
+              "path": ["password", "reset"]
+            },
+            "description": "Request password reset email"
+          }
+        },
+        {
+          "name": "Confirm Password Reset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Password reset successful', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('reset successfully');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/password/reset/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["password", "reset", "confirm"]
+            },
+            "description": "Confirm password reset with token"
+          }
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Password changed successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('changed successfully');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{current_password}}\",\n  \"new_password\": \"{{new_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/password/change",
+              "host": ["{{base_url}}"],
+              "path": ["password", "change"]
+            },
+            "description": "Change password for authenticated user"
+          }
+        },
+        {
+          "name": "Get Password Policy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Password policy returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.min_length).to.exist;",
+                  "    pm.expect(responseJson.data.require_uppercase).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/password/policy",
+              "host": ["{{base_url}}"],
+              "path": ["password", "policy"]
+            },
+            "description": "Get password policy requirements"
+          }
+        }
+      ],
+      "description": "Password management endpoints"
+    },
+    {
+      "name": "Multi-Factor Authentication",
+      "item": [
+        {
+          "name": "Setup MFA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('MFA setup data provided', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.secret).to.exist;",
+                  "    pm.expect(responseJson.data.qr_code).to.exist;",
+                  "    pm.expect(responseJson.data.backup_codes).to.exist;",
+                  "    ",
+                  "    // Store setup token for verification",
+                  "    pm.environment.set('mfa_setup_token', responseJson.data.setup_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"TOTP\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/mfa/setup",
+              "host": ["{{base_url}}"],
+              "path": ["mfa", "setup"]
+            },
+            "description": "Setup MFA for authenticated user"
+          }
+        },
+        {
+          "name": "Verify MFA Setup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('MFA setup completed', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('completed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"setup_token\": \"{{mfa_setup_token}}\",\n  \"code\": \"{{mfa_verification_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/mfa/verify-setup",
+              "host": ["{{base_url}}"],
+              "path": ["mfa", "verify-setup"]
+            },
+            "description": "Complete MFA setup verification"
+          }
+        },
+        {
+          "name": "Verify MFA Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('MFA verification successful', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.access_token).to.exist;",
+                  "    ",
+                  "    // Update access token",
+                  "    pm.environment.set('access_token', responseJson.data.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mfa_token\": \"{{mfa_token}}\",\n  \"code\": \"{{mfa_code}}\",\n  \"trust_device\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/mfa/verify",
+              "host": ["{{base_url}}"],
+              "path": ["mfa", "verify"]
+            },
+            "description": "Verify MFA code during login"
+          }
+        },
+        {
+          "name": "Get MFA Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('MFA status returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.enabled).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/mfa/status",
+              "host": ["{{base_url}}"],
+              "path": ["mfa", "status"]
+            },
+            "description": "Get current MFA status for user"
+          }
+        },
+        {
+          "name": "Disable MFA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('MFA disabled successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('disabled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{current_password}}\",\n  \"code\": \"{{mfa_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/mfa/disable",
+              "host": ["{{base_url}}"],
+              "path": ["mfa", "disable"]
+            },
+            "description": "Disable MFA for user"
+          }
+        }
+      ],
+      "description": "Multi-factor authentication endpoints"
+    },
+    {
+      "name": "Session Management",
+      "item": [
+        {
+          "name": "List Sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Sessions list returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data).to.be.an('array');",
+                  "    ",
+                  "    if (responseJson.data.length > 0) {",
+                  "        pm.expect(responseJson.data[0].session_id).to.exist;",
+                  "        pm.environment.set('session_id', responseJson.data[0].session_id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["sessions"]
+            },
+            "description": "Get all active sessions for current user"
+          }
+        },
+        {
+          "name": "Get Current Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Current session info returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.session_id).to.exist;",
+                  "    pm.expect(responseJson.data.is_current).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sessions/current",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", "current"]
+            },
+            "description": "Get current session information"
+          }
+        },
+        {
+          "name": "Terminate Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Session terminated successfully', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('terminated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sessions/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", "{{session_id}}"]
+            },
+            "description": "Terminate a specific session"
+          }
+        },
+        {
+          "name": "Terminate All Sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All sessions terminated', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.message).to.include('All sessions');",
+                  "    pm.expect(responseJson.data.terminated_count).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sessions/all",
+              "host": ["{{base_url}}"],
+              "path": ["sessions", "all"]
+            },
+            "description": "Terminate all sessions except current"
+          }
+        }
+      ],
+      "description": "Session management endpoints"
+    },
+    {
+      "name": "Security Monitoring",
+      "item": [
+        {
+          "name": "Get Security Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Security metrics returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.total_login_attempts).to.exist;",
+                  "    pm.expect(responseJson.data.successful_logins).to.exist;",
+                  "    pm.expect(responseJson.data.failed_logins).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/security/metrics?startTime={{start_time}}&endTime={{end_time}}",
+              "host": ["{{base_url}}"],
+              "path": ["security", "metrics"],
+              "query": [
+                {
+                  "key": "startTime",
+                  "value": "{{start_time}}"
+                },
+                {
+                  "key": "endTime",
+                  "value": "{{end_time}}"
+                }
+              ]
+            },
+            "description": "Get security metrics and statistics"
+          }
+        },
+        {
+          "name": "Get Security Alerts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Security alerts returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.content).to.be.an('array');",
+                  "    pm.expect(responseJson.data.page).to.exist;",
+                  "    pm.expect(responseJson.data.total_elements).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/security/alerts?status=OPEN&severity=HIGH&page=0&size=20",
+              "host": ["{{base_url}}"],
+              "path": ["security", "alerts"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "OPEN"
+                },
+                {
+                  "key": "severity",
+                  "value": "HIGH"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get security alerts with filtering"
+          }
+        }
+      ],
+      "description": "Security monitoring and alerting endpoints"
+    },
+    {
+      "name": "Rate Limiting & CAPTCHA",
+      "item": [
+        {
+          "name": "Get Rate Limit Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Rate limit status returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.blocked_ips_count).to.exist;",
+                  "    pm.expect(responseJson.data.active_buckets_count).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rate-limiting/status",
+              "host": ["{{base_url}}"],
+              "path": ["rate-limiting", "status"]
+            },
+            "description": "Check current rate limit status"
+          }
+        },
+        {
+          "name": "Generate CAPTCHA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('CAPTCHA generated', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.session_id).to.exist;",
+                  "    pm.expect(responseJson.data.image_base64).to.exist;",
+                  "    ",
+                  "    // Store CAPTCHA session for verification",
+                  "    pm.environment.set('captcha_session_id', responseJson.data.session_id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rate-limiting/captcha/generate",
+              "host": ["{{base_url}}"],
+              "path": ["rate-limiting", "captcha", "generate"]
+            },
+            "description": "Generate CAPTCHA challenge"
+          }
+        },
+        {
+          "name": "Verify CAPTCHA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('CAPTCHA verification result', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.valid).to.exist;",
+                  "    pm.expect(responseJson.data.message).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"{{captcha_session_id}}\",\n  \"response\": \"{{captcha_response}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/rate-limiting/captcha/verify",
+              "host": ["{{base_url}}"],
+              "path": ["rate-limiting", "captcha", "verify"]
+            },
+            "description": "Verify CAPTCHA response"
+          }
+        }
+      ],
+      "description": "Rate limiting and CAPTCHA endpoints"
+    },
+    {
+      "name": "Tenant Management",
+      "item": [
+        {
+          "name": "Get Tenant Context",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Tenant context returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.tenant_id).to.exist;",
+                  "    pm.expect(responseJson.data.validated).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tenant/context",
+              "host": ["{{base_url}}"],
+              "path": ["tenant", "context"]
+            },
+            "description": "Get current tenant context information"
+          }
+        },
+        {
+          "name": "Get Tenant Configuration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Tenant configuration returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.password_min_length).to.exist;",
+                  "    pm.expect(responseJson.data.session_timeout_minutes).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tenant/management/configuration",
+              "host": ["{{base_url}}"],
+              "path": ["tenant", "management", "configuration"]
+            },
+            "description": "Get tenant-specific configuration"
+          }
+        },
+        {
+          "name": "Get Tenant Usage Statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Tenant usage statistics returned', function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "    pm.expect(responseJson.data.user_count).to.exist;",
+                  "    pm.expect(responseJson.data.active_sessions_count).to.exist;",
+                  "    pm.expect(responseJson.data.api_calls_today).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tenant/management/usage",
+              "host": ["{{base_url}}"],
+              "path": ["tenant", "management", "usage"]
+            },
+            "description": "Get tenant usage statistics"
+          }
+        }
+      ],
+      "description": "Tenant management endpoints"
+    }
+  ]
+}

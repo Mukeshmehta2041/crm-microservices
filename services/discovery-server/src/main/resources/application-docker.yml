@@ -1,0 +1,51 @@
+# Docker environment configuration
+
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: discovery-server
+    prefer-ip-address: true
+    ip-address: ${EUREKA_INSTANCE_IP:discovery-server}
+    non-secure-port: 8761
+    metadata-map:
+      environment: docker
+      zone: docker-zone
+      container-id: ${HOSTNAME:unknown}
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+  server:
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000
+    renewal-percent-threshold: 0.85
+    wait-time-in-ms-when-sync-empty: 0  # Don't wait for peers in single instance
+
+# Docker-optimized logging
+logging:
+  level:
+    root: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    com.crm.platform.discovery: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+# Health check configuration for Docker
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,eureka
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

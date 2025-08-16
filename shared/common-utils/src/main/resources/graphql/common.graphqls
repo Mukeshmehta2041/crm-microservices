@@ -1,0 +1,321 @@
+# Common GraphQL schema definitions
+
+# Scalar types
+scalar DateTime
+scalar UUID
+scalar JSON
+scalar BigDecimal
+
+# Common input types
+input PageInput {
+  page: Int = 1
+  limit: Int = 20
+  cursor: String
+  direction: CursorDirection = FORWARD
+}
+
+input SortInput {
+  field: String!
+  direction: SortDirection = ASC
+  nullsFirst: Boolean
+}
+
+input FilterInput {
+  field: String!
+  operator: FilterOperator!
+  value: String
+  values: [String!]
+  logicalOperator: LogicalOperator = AND
+  nested: [FilterInput!]
+}
+
+input SearchInput {
+  query: String!
+  fields: [String!]
+  filters: [FilterInput!]
+  sort: [SortInput!]
+  page: PageInput
+}
+
+# Common enums
+enum SortDirection {
+  ASC
+  DESC
+}
+
+enum CursorDirection {
+  FORWARD
+  BACKWARD
+}
+
+enum FilterOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  GREATER_THAN_OR_EQUAL
+  LESS_THAN
+  LESS_THAN_OR_EQUAL
+  LIKE
+  ILIKE
+  IN
+  NOT_IN
+  IS_NULL
+  IS_NOT_NULL
+  BETWEEN
+  CONTAINS
+  STARTS_WITH
+  ENDS_WITH
+  REGEX
+  DATE_RANGE
+  CUSTOM_FIELD
+}
+
+enum LogicalOperator {
+  AND
+  OR
+}
+
+# Common response types
+type PageInfo {
+  page: Int!
+  limit: Int!
+  total: Int!
+  totalPages: Int!
+  hasNext: Boolean!
+  hasPrev: Boolean!
+  cursor: String
+}
+
+type ResponseMeta {
+  timestamp: DateTime!
+  version: String!
+  requestId: String
+  processingTime: String
+  rateLimit: RateLimitInfo
+}
+
+type RateLimitInfo {
+  limit: Int!
+  remaining: Int!
+  resetAt: DateTime!
+}
+
+# Error types
+type GraphQLError {
+  code: String!
+  message: String!
+  field: String
+  value: String
+  constraint: String
+  path: [String!]
+}
+
+# Bulk operation types
+input BulkOperationInput {
+  operation: BulkOperationType!
+  data: [JSON!]
+  ids: [UUID!]
+  filters: [FilterInput!]
+  updateFields: JSON
+  validationOnly: Boolean = false
+  continueOnError: Boolean = true
+  batchSize: Int = 100
+  async: Boolean = false
+}
+
+type BulkOperationResult {
+  jobId: UUID!
+  status: BulkOperationStatus!
+  totalRecords: Int
+  processedRecords: Int
+  successfulRecords: Int
+  failedRecords: Int
+  skippedRecords: Int
+  progress: Float
+  startedAt: DateTime!
+  completedAt: DateTime
+  estimatedTimeRemaining: Int
+  errors: [BulkOperationError!]
+  warnings: [BulkOperationWarning!]
+  downloadUrl: String
+}
+
+type BulkOperationError {
+  recordIndex: Int
+  recordId: UUID
+  errorCode: String!
+  errorMessage: String!
+  field: String
+  value: String
+  constraint: String
+}
+
+type BulkOperationWarning {
+  recordIndex: Int
+  warningCode: String!
+  warningMessage: String!
+  field: String
+}
+
+enum BulkOperationType {
+  CREATE
+  UPDATE
+  DELETE
+  UPSERT
+}
+
+enum BulkOperationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PARTIALLY_COMPLETED
+}
+
+# Audit trail
+type AuditTrail {
+  id: UUID!
+  entityType: String!
+  entityId: UUID!
+  operation: String!
+  oldValues: JSON
+  newValues: JSON
+  changedFields: [String!]
+  userId: UUID!
+  userName: String!
+  timestamp: DateTime!
+  ipAddress: String
+  userAgent: String
+}
+
+# Custom fields
+type CustomField {
+  id: UUID!
+  name: String!
+  label: String!
+  type: CustomFieldType!
+  dataType: String!
+  isRequired: Boolean!
+  isUnique: Boolean!
+  defaultValue: String
+  helpText: String
+  validationRules: JSON
+  displayOptions: JSON
+  options: [CustomFieldOption!]
+}
+
+type CustomFieldOption {
+  id: UUID!
+  label: String!
+  value: String!
+  isDefault: Boolean!
+  order: Int!
+}
+
+enum CustomFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DECIMAL
+  CURRENCY
+  PERCENT
+  DATE
+  DATETIME
+  BOOLEAN
+  PICKLIST
+  MULTIPICKLIST
+  EMAIL
+  PHONE
+  URL
+  LOOKUP
+  MASTER_DETAIL
+}
+
+# Subscription types for real-time updates
+type Subscription {
+  # Entity change notifications
+  entityChanged(entityType: String!, entityId: UUID): EntityChangeNotification
+  
+  # Bulk operation progress
+  bulkOperationProgress(jobId: UUID!): BulkOperationResult
+  
+  # Real-time analytics updates
+  analyticsUpdated(dashboardId: UUID): AnalyticsUpdate
+}
+
+type EntityChangeNotification {
+  entityType: String!
+  entityId: UUID!
+  operation: String!
+  data: JSON
+  timestamp: DateTime!
+  userId: UUID!
+}
+
+type AnalyticsUpdate {
+  dashboardId: UUID!
+  widgetId: UUID
+  data: JSON!
+  timestamp: DateTime!
+}
+
+# Interface for all entities - commented out to avoid type resolver errors
+# interface Entity {
+#   id: UUID!
+#   createdAt: DateTime!
+#   updatedAt: DateTime!
+#   createdBy: UUID!
+#   updatedBy: UUID!
+#   customFields: JSON
+# }
+
+# Interface for tenant-scoped entities - commented out to avoid type resolver errors
+# interface TenantEntity {
+#   tenantId: UUID!
+# }
+
+# Interface for entities with ownership - commented out to avoid type resolver errors
+# interface OwnedEntity {
+#   ownerId: UUID!
+#   ownerName: String
+# }
+
+# Root Query type - required by GraphQL
+type Query {
+  # Placeholder query to satisfy GraphQL schema requirements
+  # This will be extended by individual services
+  _empty: String
+}
+
+# Common mutations
+type Mutation {
+  # Bulk operations
+  bulkOperation(input: BulkOperationInput!): BulkOperationResult!
+  
+  # Custom field management
+  createCustomField(entityType: String!, field: CustomFieldInput!): CustomField!
+  updateCustomField(id: UUID!, field: CustomFieldInput!): CustomField!
+  deleteCustomField(id: UUID!): Boolean!
+}
+
+input CustomFieldInput {
+  name: String!
+  label: String!
+  type: CustomFieldType!
+  dataType: String!
+  isRequired: Boolean = false
+  isUnique: Boolean = false
+  defaultValue: String
+  helpText: String
+  validationRules: JSON
+  displayOptions: JSON
+  options: [CustomFieldOptionInput!]
+}
+
+input CustomFieldOptionInput {
+  label: String!
+  value: String!
+  isDefault: Boolean = false
+  order: Int = 0
+}

@@ -1,0 +1,272 @@
+# Alerting Rules for CRM Microservices Platform
+# This file defines Prometheus alerting rules for monitoring the platform
+
+groups:
+  - name: crm-platform-alerts
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://wiki.company.com/runbooks/service-down"
+
+      - alert: ServiceHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Service {{ $labels.service }} has error rate above 5% for more than 2 minutes."
+
+      - alert: ServiceHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "Service {{ $labels.service }} 95th percentile latency is above 2 seconds."
+
+      # Database Alerts
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database connections high"
+          description: "Database {{ $labels.datname }} is using more than 80% of available connections."
+
+      - alert: DatabaseSlowQueries
+        expr: rate(pg_stat_database_tup_returned[5m]) / rate(pg_stat_database_tup_fetched[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database slow queries detected"
+          description: "Database {{ $labels.datname }} has a low tuple return rate, indicating slow queries."
+
+      # Redis Alerts
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis instance {{ $labels.instance }} is using more than 90% of available memory."
+
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis connections high"
+          description: "Redis instance {{ $labels.instance }} has more than 1000 connected clients."
+
+      # JVM Alerts
+      - alert: JVMMemoryHigh
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "JVM heap memory high"
+          description: "Service {{ $labels.service }} JVM heap memory usage is above 80%."
+
+      - alert: JVMGCTimeHigh
+        expr: rate(jvm_gc_collection_seconds_sum[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "JVM GC time high"
+          description: "Service {{ $labels.service }} is spending more than 10% of time in garbage collection."
+
+      # Kafka Alerts
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_lag_sum > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kafka consumer lag high"
+          description: "Kafka consumer {{ $labels.consumer_group }} has lag of {{ $value }} messages."
+
+      - alert: KafkaPartitionOffline
+        expr: kafka_cluster_partition_offline > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kafka partition offline"
+          description: "Kafka cluster has {{ $value }} offline partitions."
+
+      # Business Logic Alerts
+      - alert: HighFailedLogins
+        expr: rate(crm_auth_failed_logins_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High failed login attempts"
+          description: "There are more than 10 failed login attempts per second."
+
+      - alert: LowDealConversionRate
+        expr: rate(crm_deals_converted_total[1h]) / rate(crm_deals_created_total[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: warning
+          team: business
+        annotations:
+          summary: "Low deal conversion rate"
+          description: "Deal conversion rate is below 10% for the last hour."
+
+      # Infrastructure Alerts
+      - alert: DiskSpaceHigh
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Disk space high"
+          description: "Disk usage on {{ $labels.instance }} is above 85%."
+
+      - alert: CPUUsageHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "CPU usage high"
+          description: "CPU usage on {{ $labels.instance }} is above 80% for more than 10 minutes."
+
+      - alert: MemoryUsageHigh
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Memory usage high"
+          description: "Memory usage on {{ $labels.instance }} is above 90%."
+
+  - name: crm-business-alerts
+    rules:
+      # Business KPI Alerts
+      - alert: DailyActiveUsersLow
+        expr: crm_daily_active_users < 100
+        for: 1h
+        labels:
+          severity: warning
+          team: business
+        annotations:
+          summary: "Daily active users low"
+          description: "Daily active users count is below 100."
+
+      - alert: APIRateLimitHit
+        expr: rate(crm_api_rate_limit_exceeded_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API rate limit exceeded"
+          description: "API rate limit is being exceeded for service {{ $labels.service }}."
+
+      - alert: DataSyncFailure
+        expr: crm_data_sync_failures_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Data synchronization failure"
+          description: "Data synchronization has failed for {{ $labels.sync_type }}."
+
+  - name: crm-security-alerts
+    rules:
+      # Security Alerts
+      - alert: SuspiciousLoginActivity
+        expr: rate(crm_auth_failed_logins_total[1m]) > 50
+        for: 30s
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Suspicious login activity detected"
+          description: "More than 50 failed login attempts per second detected."
+
+      - alert: UnauthorizedAPIAccess
+        expr: rate(http_requests_total{status="401"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High unauthorized API access"
+          description: "High rate of 401 responses detected on {{ $labels.service }}."
+
+      - alert: JWTTokenExpiredHigh
+        expr: rate(crm_jwt_token_expired_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High JWT token expiration rate"
+          description: "High rate of JWT token expirations detected."
+
+  - name: crm-performance-alerts
+    rules:
+      # Performance Alerts
+      - alert: DatabaseQuerySlow
+        expr: histogram_quantile(0.95, rate(crm_database_query_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Slow database queries"
+          description: "95th percentile database query time is above 5 seconds."
+
+      - alert: CacheHitRateLow
+        expr: rate(crm_cache_hits_total[5m]) / (rate(crm_cache_hits_total[5m]) + rate(crm_cache_misses_total[5m])) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Cache hit rate low"
+          description: "Cache hit rate is below 80% for {{ $labels.cache_type }}."
+
+      - alert: QueueDepthHigh
+        expr: crm_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Queue depth high"
+          description: "Queue {{ $labels.queue_name }} has more than 1000 pending messages."

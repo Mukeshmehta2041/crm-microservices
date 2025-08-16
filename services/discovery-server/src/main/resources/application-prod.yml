@@ -1,0 +1,59 @@
+# Production environment configuration
+
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:discovery-server}
+    prefer-ip-address: false
+    ip-address: ${EUREKA_INSTANCE_IP:discovery-server}
+    non-secure-port: 8761
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    metadata-map:
+      environment: production
+      zone: ${EUREKA_INSTANCE_ZONE:prod-zone}
+      datacenter: ${EUREKA_INSTANCE_DATACENTER:dc1}
+      version: ${spring.application.version:1.0.0}
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://discovery-server:8761/eureka/}
+    registry-fetch-interval-seconds: 30
+  server:
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000
+    renewal-percent-threshold: 0.85
+    response-cache-auto-expiration-in-seconds: 180
+    response-cache-update-interval-ms: 30000
+    max-idle-registry-sync-retries: 3
+    registry-sync-retries: 5
+
+# Production logging - more conservative
+logging:
+  level:
+    root: WARN
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    com.crm.platform.discovery: INFO
+  file:
+    name: /var/log/discovery-server/discovery-server.log
+    max-size: 100MB
+    max-history: 30
+
+# Production management endpoints - restricted
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+  metrics:
+    tags:
+      environment: production
+      datacenter: ${EUREKA_INSTANCE_DATACENTER:dc1}

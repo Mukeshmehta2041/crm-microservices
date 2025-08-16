@@ -1,0 +1,443 @@
+name: Release Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+      pre_release:
+        description: 'Is this a pre-release?'
+        required: false
+        default: false
+        type: boolean
+      release_notes:
+        description: 'Additional release notes'
+        required: false
+        type: string
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: '-Xmx2g -XX:MaxMetaspaceSize=512m'
+
+jobs:
+  # Prepare release
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      new-version: ${{ steps.version.outputs.new-version }}
+      release-branch: ${{ steps.branch.outputs.release-branch }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Calculate new version
+      id: version
+      run: |
+        CURRENT_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/-SNAPSHOT//')
+        
+        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]}
+        PATCH=${VERSION_PARTS[2]}
+        
+        case "${{ github.event.inputs.release_type }}" in
+          "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          "patch")
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+        echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "New version will be: $NEW_VERSION"
+
+    - name: Create release branch
+      id: branch
+      run: |
+        RELEASE_BRANCH="release/v${{ steps.version.outputs.new-version }}"
+        git checkout -b "$RELEASE_BRANCH"
+        echo "release-branch=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+        echo "Created release branch: $RELEASE_BRANCH"
+
+    - name: Update version in POM files
+      run: |
+        ./mvnw versions:set -DnewVersion=${{ steps.version.outputs.new-version }} -DgenerateBackupPoms=false
+        git add .
+        git commit -m "chore: bump version to ${{ steps.version.outputs.new-version }}"
+
+    - name: Push release branch
+      run: |
+        git push origin ${{ steps.branch.outputs.release-branch }}
+
+  # Run comprehensive tests
+  test-release:
+    name: Test Release
+    runs-on: ubuntu-latest
+    needs: prepare-release
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crm_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:6-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout release branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare-release.outputs.release-branch }}
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Run full test suite
+      run: |
+        ./mvnw clean verify
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: crm_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run integration tests
+      run: |
+        ./mvnw verify -Dspring.profiles.active=integration-test
+
+    - name: Run performance tests
+      run: |
+        # Add performance test commands
+        echo "Running performance tests..."
+
+    - name: Generate test reports
+      run: |
+        ./mvnw jacoco:report
+        ./mvnw surefire-report:report
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-test-results
+        path: |
+          **/target/surefire-reports/
+          **/target/site/jacoco/
+
+  # Build release artifacts
+  build-release:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-release]
+
+    steps:
+    - name: Checkout release branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare-release.outputs.release-branch }}
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build release artifacts
+      run: |
+        ./mvnw clean package -DskipTests
+        ./mvnw javadoc:aggregate
+
+    - name: Create distribution packages
+      run: |
+        mkdir -p dist
+        
+        # Copy JAR files
+        find . -name "*.jar" -not -path "*/target/dependency/*" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -exec cp {} dist/ \;
+        
+        # Copy documentation
+        if [ -d "target/site/apidocs" ]; then
+          tar -czf dist/javadoc-${{ needs.prepare-release.outputs.new-version }}.tar.gz -C target/site apidocs
+        fi
+        
+        # Create checksums
+        cd dist
+        for file in *; do
+          sha256sum "$file" > "$file.sha256"
+        done
+
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts
+        path: dist/
+
+  # Build and push Docker images
+  build-docker-release:
+    name: Build Docker Release Images
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-release]
+
+    strategy:
+      matrix:
+        service: [discovery-server, api-gateway, auth-service, tenant-service, users-service]
+
+    steps:
+    - name: Checkout release branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare-release.outputs.release-branch }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: services/${{ matrix.service }}
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ needs.prepare-release.outputs.new-version }}
+          ghcr.io/${{ github.repository }}/${{ matrix.service }}:latest
+        labels: |
+          org.opencontainers.image.title=${{ matrix.service }}
+          org.opencontainers.image.description=CRM Platform ${{ matrix.service }}
+          org.opencontainers.image.version=${{ needs.prepare-release.outputs.new-version }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+        build-args: |
+          VERSION=${{ needs.prepare-release.outputs.new-version }}
+          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          VCS_REF=${{ github.sha }}
+
+  # Create GitHub release
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-release, build-release, build-docker-release]
+
+    steps:
+    - name: Checkout release branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare-release.outputs.release-branch }}
+        fetch-depth: 0
+
+    - name: Download release artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: release-artifacts
+        path: dist/
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating changelog from $PREVIOUS_TAG to HEAD"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD)
+        else
+          echo "No previous tag found, generating changelog from first commit"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)")
+        fi
+        
+        # Save changelog to file
+        cat > CHANGELOG.md << EOF
+        ## What's Changed
+        
+        $CHANGELOG
+        
+        ## Docker Images
+        
+        The following Docker images are available for this release:
+        
+        - \`ghcr.io/${{ github.repository }}/discovery-server:${{ needs.prepare-release.outputs.new-version }}\`
+        - \`ghcr.io/${{ github.repository }}/api-gateway:${{ needs.prepare-release.outputs.new-version }}\`
+        - \`ghcr.io/${{ github.repository }}/auth-service:${{ needs.prepare-release.outputs.new-version }}\`
+        - \`ghcr.io/${{ github.repository }}/tenant-service:${{ needs.prepare-release.outputs.new-version }}\`
+        - \`ghcr.io/${{ github.repository }}/users-service:${{ needs.prepare-release.outputs.new-version }}\`
+        
+        ## Installation
+        
+        \`\`\`bash
+        # Download and run with Docker Compose
+        curl -O https://github.com/${{ github.repository }}/releases/download/v${{ needs.prepare-release.outputs.new-version }}/docker-compose.yml
+        docker-compose up -d
+        \`\`\`
+        
+        ${{ github.event.inputs.release_notes }}
+        EOF
+
+    - name: Create Git tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "v${{ needs.prepare-release.outputs.new-version }}" -m "Release v${{ needs.prepare-release.outputs.new-version }}"
+        git push origin "v${{ needs.prepare-release.outputs.new-version }}"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ needs.prepare-release.outputs.new-version }}
+        name: Release v${{ needs.prepare-release.outputs.new-version }}
+        body_path: CHANGELOG.md
+        files: dist/*
+        prerelease: ${{ github.event.inputs.pre_release }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Merge release branch back to main
+  merge-release:
+    name: Merge Release Branch
+    runs-on: ubuntu-latest
+    needs: [prepare-release, create-release]
+
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Merge release branch
+      run: |
+        git fetch origin ${{ needs.prepare-release.outputs.release-branch }}
+        git merge origin/${{ needs.prepare-release.outputs.release-branch }} --no-ff -m "Merge release v${{ needs.prepare-release.outputs.new-version }}"
+        git push origin main
+
+    - name: Delete release branch
+      run: |
+        git push origin --delete ${{ needs.prepare-release.outputs.release-branch }}
+
+  # Update develop branch
+  update-develop:
+    name: Update Develop Branch
+    runs-on: ubuntu-latest
+    needs: [prepare-release, merge-release]
+
+    steps:
+    - name: Checkout develop branch
+      uses: actions/checkout@v4
+      with:
+        ref: develop
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Merge main into develop
+      run: |
+        git fetch origin main
+        git merge origin/main --no-ff -m "Merge main after release v${{ needs.prepare-release.outputs.new-version }}"
+
+    - name: Bump to next development version
+      run: |
+        # Calculate next development version
+        CURRENT_VERSION="${{ needs.prepare-release.outputs.new-version }}"
+        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]}
+        PATCH=${VERSION_PARTS[2]}
+        
+        # Increment minor version for next development cycle
+        MINOR=$((MINOR + 1))
+        NEXT_DEV_VERSION="$MAJOR.$MINOR.0-SNAPSHOT"
+        
+        ./mvnw versions:set -DnewVersion=$NEXT_DEV_VERSION -DgenerateBackupPoms=false
+        git add .
+        git commit -m "chore: bump to next development version $NEXT_DEV_VERSION"
+        git push origin develop
+
+  # Notify release completion
+  notify-release:
+    name: Notify Release Completion
+    runs-on: ubuntu-latest
+    needs: [prepare-release, create-release, merge-release, update-develop]
+    if: always()
+
+    steps:
+    - name: Send release notification
+      run: |
+        echo "Release v${{ needs.prepare-release.outputs.new-version }} completed successfully!"
+        echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.prepare-release.outputs.new-version }}"
+        
+        # Add notification logic here (Slack, email, etc.)
+        # Example Slack notification:
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data "{\"text\":\"🚀 CRM Platform v${{ needs.prepare-release.outputs.new-version }} has been released!\"}" \
+        #   $SLACK_WEBHOOK_URL
